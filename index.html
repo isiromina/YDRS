@@ -4,223 +4,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>✨ AI 기반 실시간 재난 현황 대시보드</title>
-    <!-- 
-        Application Structure Plan: This version is optimized for performance.
-        1. Data pre-processing: Expensive calculations (like disaster-factory distances) are now done only when new data is fetched, not on every render.
-        2. Faster initial load: The UI now renders instantly with stored data before fetching updates in the background.
-        3. Decoupled logic: Language switching is now instantaneous as it no longer triggers a data refetch, only a re-render of the UI with existing processed data.
-        4. Periodic updates: Added a 5-minute interval to automatically check for new disasters.
-    -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.1/kakao.min.js" xintegrity="sha384-dPuE23cCSeGgtTyVZWJB2esL6sDyLBMBrZJjKaUdeKscDMTB+JROOr5TPuhfTeu4" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        
-        /* --- 1. General & Layout --- */
         * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            color: #333;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-
-        /* --- 2. Header & Typography --- */
-        header {
-            margin-bottom: 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1.5rem;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-            padding-bottom: 2rem;
-        }
-        header h1 {
-            font-size: 2.25rem;
-            font-weight: 700;
-            color: #4a5568;
-        }
-        header p {
-            margin-top: 0.5rem;
-            color: #4a5568;
-        }
-
-        /* --- 3. Controls & Buttons --- */
-        #lang-switcher {
-            display: flex;
-            gap: 0.5rem;
-        }
-        .lang-btn {
-            background: rgba(0, 0, 0, 0.05);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            color: #333;
-            padding: 0.5rem 1rem;
-            border-radius: 25px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        .lang-btn:hover { background: rgba(0, 0, 0, 0.1); }
-        .lang-btn.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-color: transparent;
-            color: white;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-        .btn {
-            background: linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-            border: none;
-            color: white;
-            padding: 0.6rem 1.2rem;
-            border-radius: 25px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
-            white-space: nowrap;
-        }
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-        }
+        body { margin: 0; font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); color: #333; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        header { margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem; border-bottom: 1px solid rgba(0, 0, 0, 0.1); padding-bottom: 2rem; }
+        header h1 { font-size: 2.25rem; font-weight: 700; color: #4a5568; }
+        header p { margin-top: 0.5rem; color: #4a5568; }
+        .btn { background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); border: none; color: white; padding: 0.6rem 1.2rem; border-radius: 25px; font-size: 0.875rem; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: all 0.3s ease; white-space: nowrap; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
         .btn-danger { background: linear-gradient(135deg,#e53935 0%,#b71c1c 100%); }
-        .ai-action-btn {
-            background: #3b82f6;
-            border: none;
-            color: white;
-            padding: 0.4rem 0.8rem;
-            border-radius: 5px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
+        .ai-action-btn { background: #3b82f6; border: none; color: white; padding: 0.4rem 0.8rem; border-radius: 5px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
         .ai-action-btn:hover { background: #2563eb; transform: translateY(-1px); }
-        .ai-action-btn:disabled { cursor: not-allowed; background: #555; }
-
-        /* --- 4. Content Sections & Map --- */
-        main section {
-            margin-bottom: 2rem;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 15px;
-            padding: 2rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-        .section-header-main { flex-grow: 1; }
-        .section-header-controls { display: flex; gap: 0.5rem; align-items: center; }
-        main h2 {
-            font-size: 1.75rem;
-            font-weight: 600;
-            color: #2d3748;
-            margin-bottom: 0.5rem;
-        }
+        main section { margin-bottom: 2rem; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 15px; padding: 2rem; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem; }
+        main h2 { font-size: 1.75rem; font-weight: 600; color: #2d3748; margin-bottom: 0.5rem; }
         main .section-subtitle { color: #4a5568; margin-bottom: 1.5rem; }
         #map { width: 100%; height: 65vh; border-radius: 10px; background: #f0f0f0; }
-        .leaflet-tooltip {
-            background-color: rgba(255, 255, 255, 0.9) !important;
-            border: 1px solid #ccc !important;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;
-            border-radius: 4px !important;
-            color: #333 !important;
-        }
-
-        /* --- 5. Table --- */
-        .table-wrapper { overflow-x: auto; }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.875rem;
-            background: white;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        th, td {
-            border: 1px solid #e2e8f0;
-            padding: 0.85rem 1rem;
-            text-align: center;
-            vertical-align: middle;
-        }
-        th {
-            background: #f7fafc;
-            color: #2d3748;
-            font-weight: 600;
-        }
-        tbody tr:hover { background: #f7fafc; }
-        td:first-child { font-weight: 600; }
-        .alert-safe { background-color: transparent; }
-        .alert-caution { background-color: rgba(4, 120, 87, 0.1); }
-        .alert-warning { background-color: rgba(251, 146, 60, 0.1); }
-        .alert-severe { background-color: rgba(220, 38, 38, 0.15); }
-
-        /* --- 6. Modals --- */
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1001;
-            padding: 1rem;
-        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+        th, td { border: 1px solid #e2e8f0; padding: 0.85rem 1rem; text-align: center; vertical-align: middle; }
+        th { background: #f7fafc; font-weight: 600; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1001; }
         .modal-overlay.flex { display: flex; }
-        .modal-content {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 42rem;
-            max-height: 90vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        .modal-header h3 { font-size: 1.25rem; font-weight: 600; color: #2d3748; }
-        .modal-close-btn { background: none; border: none; color: #333; font-size: 1.75rem; cursor: pointer; line-height: 1; }
-        .modal-body { padding: 1.5rem; overflow-y: auto; white-space: pre-wrap; color: #4a5568; }
-        .confirm-modal-content { max-width: 24rem; text-align: center; padding: 2rem; }
-        .confirm-modal-content h3 { margin-bottom: 1.5rem; font-size: 1.1rem; }
-        .confirm-modal-buttons { display: flex; justify-content: center; gap: 1rem; }
-
-        /* --- 7. Utilities & Responsive --- */
-        .spinner { border: 2px solid rgba(0,0,0,0.1); border-top: 2px solid #667eea; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @media (max-width: 768px) {
-            .container { padding: 1rem; }
-            header { flex-direction: column; text-align: center; }
-            header h1 { font-size: 1.75rem; }
-            main section { padding: 1rem; }
-            .section-header { flex-direction: column; align-items: stretch; text-align: center; }
-            .section-header-main { margin-bottom: 1rem; }
-            #map { height: 50vh; }
-            th, td { padding: 0.5rem; font-size: 0.8rem;}
-        }
+        .modal-content { background: #ffffff; border-radius: 15px; width: 100%; max-width: 42rem; max-height: 90vh; display: flex; flex-direction: column; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-bottom: 1px solid #e2e8f0; }
+        .modal-close-btn { background: none; border: none; font-size: 1.75rem; cursor: pointer; }
+        .modal-body { padding: 1.5rem; overflow-y: auto; }
+        #settings-form { display: flex; flex-direction: column; gap: 1rem; }
+        #settings-form input { padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; }
+        #contacts-list { list-style: none; padding: 0; margin-top: 1.5rem; }
+        #contacts-list li { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid #e2e8f0; }
+        .delete-contact-btn { background: #ef4444; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -231,20 +52,23 @@
                 <h1 data-lang-key="mainTitle"></h1>
                 <p data-lang-key="mainSubtitle"></p>
             </div>
-            <div id="lang-switcher">
-                <button data-lang="ko" class="lang-btn">🇰🇷 KO</button>
-                <button data-lang="en" class="lang-btn">🇺🇸 EN</button>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <button id="manage-contacts-btn" class="btn" data-lang-key="manageContactsBtn">📇 </button>
+                <div id="lang-switcher" style="display: flex; gap: 0.5rem;">
+                    <button data-lang="ko" class="btn">🇰🇷 KO</button>
+                    <button data-lang="en" class="btn">🇺🇸 EN</button>
+                </div>
             </div>
         </header>
 
         <main>
             <section id="map-section">
                 <div class="section-header">
-                    <div class="section-header-main">
+                    <div>
                         <h2 data-lang-key="mapTitle"></h2>
                         <p class="section-subtitle" data-lang-key="mapSubtitle"></p>
                     </div>
-                    <div class="section-header-controls">
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
                         <button id="toggle-map-btn" class="btn"></button>
                         <button id="clear-history-btn" class="btn btn-danger" data-lang-key="clearHistoryBtn"></button>
                     </div>
@@ -253,401 +77,392 @@
             </section>
 
             <section id="table-section">
-                <h2 data-lang-key="tableTitle"></h2>
-                <p class="section-subtitle" data-lang-key="tableSubtitle"></p>
-                <div class="table-wrapper">
+                <div class="section-header">
+                    <div>
+                        <h2 data-lang-key="tableTitle"></h2>
+                        <p class="section-subtitle" data-lang-key="tableSubtitle"></p>
+                    </div>
+                    <button id="manual-notify-btn" class="btn" data-lang-key="manualNotifyBtn" style="display: none;"></button>
+                </div>
+                <div style="overflow-x: auto;">
                     <table>
-                        <thead>
-                            <tr id="table-header-row"></tr>
-                        </thead>
+                        <thead><tr id="table-header-row"></tr></thead>
                         <tbody id="distanceTableBody"></tbody>
                     </table>
                 </div>
             </section>
         </main>
     </div>
-
-    <!-- AI Response Modal -->
+    
     <div id="ai-modal" class="modal-overlay">
         <div class="modal-content">
             <header class="modal-header">
                 <h3 id="ai-modal-title"></h3>
                 <button id="ai-modal-close" class="modal-close-btn">&times;</button>
             </header>
-            <div id="ai-modal-content" class="modal-body"></div>
+            <div id="ai-modal-content" class="modal-body" style="white-space: pre-wrap;"></div>
         </div>
     </div>
     
-    <!-- Custom Confirm Modal -->
-    <div id="confirm-modal" class="modal-overlay">
-        <div class="modal-content confirm-modal-content">
-            <h3 id="confirm-modal-text"></h3>
-            <div class="confirm-modal-buttons">
-                <button id="confirm-yes-btn" class="btn btn-danger"></button>
-                <button id="confirm-no-btn" class="btn"></button>
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-content">
+            <header class="modal-header">
+                <h3 data-lang-key="settingsModalTitle"></h3>
+                <button id="settings-modal-close" class="modal-close-btn">&times;</button>
+            </header>
+            <div class="modal-body">
+                <form id="settings-form">
+                    <input type="text" id="contact-name" placeholder="Name" required>
+                    <input type="email" id="contact-email" placeholder="Email Address" required>
+                    <input type="tel" id="contact-phone" placeholder="Phone Number (e.g., 01012345678)" required>
+                    <button type="submit" class="btn" data-lang-key="addContactBtn"></button>
+                </form>
+                <ul id="contacts-list"></ul>
             </div>
         </div>
     </div>
 
     <script>
-        // --- 1. CONSTANTS & CONFIGURATION ---
+        // --- 1. CONFIGURATION & CONSTANTS ---
+        // =======================================================
+        // ✨ If running locally, please input your own API keys.
+        // =======================================================
+        const GEMINI_API_KEY =""; // This is automatically provided in the execution environment.
+        const EMAILJS_PUBLIC_KEY = "7piqAcEBAyDl2ac9-"; // EmailJS Public Key
+        const EMAILJS_SERVICE_ID = "service_7fp4k9e"; // EmailJS Service ID
+        const EMAILJS_TEMPLATE_ID = "template_8xzncvb"; // EmailJS Template ID
+        const KAKAO_JAVASCRIPT_KEY = "ffcb37ffd3124eeba4311dbbb777c6c5"; // Kakao Developers JavaScript Key
+
         const factories = {
             "R&D Center": {lat: 37.4028781, lng: 127.1080751}, "CHEONGBUK": {lat: 37.0432081, lng: 126.9488081},
-            "JANGAN": {lat: 37.0617091, lng: 126.8516081}, "JINWI": {lat: 37.1135291, lng: 127.0646151},
-            "CHEONGJU": {lat: 36.6326841, lng: 127.3074351}, "GYEONGJU": {lat: 35.8710891, lng: 129.0705691},
-            "JUNDONG": {lat: 36.6421561, lng: 127.2760631}, "BEIJING": {lat: 40.3584486, lng: 116.8131146},
-            "WEIHAI": {lat: 37.3701011, lng: 122.2203763}, "RONGCHENG": {lat: 37.1447568, lng: 122.4544656},
-            "HEZE": {lat: 35.2431127, lng: 115.5612442}, "LELING": {lat: 37.7332868, lng: 117.1757121},
-            "VIETNAM": {lat: 20.9714435, lng: 105.9899378}, "SERBIA LESKOVAC": {lat: 43.0142517, lng: 21.9588845},
-            "SERBIA RACA": {lat: 44.2471316, lng: 20.9899691}, "SERBIA NIS": {lat: 43.3113091, lng: 21.8318674},
-            "SLOVAKIA LEDNICKE": {lat: 49.0720488, lng: 18.2989662}, "SLOVAKIA SOBOTA": {lat: 48.3778118, lng: 20.0136771},
-            "MEXICO TORREON": {lat: 25.4720401, lng: -103.3606821}, "MEXICO DURANGO": {lat: 25.8341065, lng: -103.8415915},
-            "MEXICO LERDO": {lat: 25.5634585, lng: -103.5213405}, "MEXICO MONTERRAY": {lat: 25.7585854, lng: -99.9957003},
-            "TUNISIA": {lat: 35.6939288, lng: 10.1124129}, "MORROCO": {lat: 33.8612668, lng: -5.5831826},
-            "ALBANIA": {lat: 40.7146584, lng: 19.5492341}, "RUS": {lat: 59.3765474, lng: 28.2204991},
-            "POLAND": {lat: 51.0365921, lng: 16.8978391}, "CZECH": {lat: 49.7794629, lng: 18.4498011},
-            "UK": {lat: 52.4682403, lng: -1.2716024}
+            "JANGAN": {lat: 37.0617091, lng: 126.8516081}, "JINWI": {lat: 37.1135291, lng: 127.0646151}, "CHEONGJU": {lat: 36.6326841, lng: 127.3074351},
+            "GYEONGJU": {lat: 35.8710891, lng: 129.0705691}, "JUNDONG": {lat: 36.6421561, lng: 127.2760631}, "BEIJING": {lat: 40.3584486, lng: 116.8131146},
+            "WEIHAI": {lat: 37.3701011, lng: 122.2203763}, "RONGCHENG": {lat: 37.1447568, lng: 122.4544656}, "HEZE": {lat: 35.2431127, lng: 115.5612442},
+            "LELING": {lat: 37.7332868, lng: 117.1757121}, "VIETNAM": {lat: 20.9714435, lng: 105.9899378}, "SERBIA LESKOVAC": {lat: 43.0142517, lng: 21.9588845},
+            "SERBIA RACA": {lat: 44.2471316, lng: 20.9899691}, "SERBIA NIS": {lat: 43.3113091, lng: 21.8318674}, "SLOVAKIA LEDNICKE": {lat: 49.0720488, lng: 18.2989662},
+            "SLOVAKIA SOBOTA": {lat: 48.3778118, lng: 20.0136771}, "MEXICO TORREON": {lat: 25.4720401, lng: -103.3606821}, "MEXICO DURANGO": {lat: 25.8341065, lng: -103.8415915},
+            "MEXICO LERDO": {lat: 25.5634585, lng: -103.5213405}, "MEXICO MONTERRAY": {lat: 25.7585854, lng: -99.9957003}, "TUNISIA": {lat: 35.6939288, lng: 10.1124129},
+            "MORROCO": {lat: 33.8612668, lng: -5.5831826}, "ALBANIA": {lat: 40.7146584, lng: 19.5492341}, "RUS": {lat: 59.3765474, lng: 28.2204991},
+            "POLAND": {lat: 51.0365921, lng: 16.8978391}, "CZECH": {lat: 49.7794629, lng: 18.4498011}, "UK": {lat: 52.4682403, lng: -1.2716024}
         };
 
         const translations = {
             ko: {
                 mainTitle: "✨ AI 기반 실시간 재난 현황 대시보드", mainSubtitle: "GDACS 데이터를 기반으로 재난 정보를 시각화하고, Gemini AI를 통해 맞춤형 대응 방안을 생성합니다.",
-                mapTitle: "누적 재난 지도", clearHistoryBtn: "이력 초기화 ↻", mapSubtitle: "지금까지 감지된 모든 재난의 위치를 지도에서 확인하세요. 새로운 재난 정보는 자동으로 누적됩니다.",
-                tableTitle: "위험 근접 공장 목록", tableSubtitle: "감지된 재난으로부터 1000km 이내에 위치한 공장 목록입니다. '대응 방안 생성' 버튼을 클릭하여 Gemini AI가 제안하는 행동 계획을 확인하세요.",
+                mapTitle: "누적 재난 지도", clearHistoryBtn: "이력 초기화 ↻", mapSubtitle: "지금까지 감지된 모든 재난의 위치를 지도에서 확인하세요.",
+                tableTitle: "위험 근접 공장 목록", tableSubtitle: "감지된 재난으로부터 1000km 이내에 위치한 공장 목록입니다.",
                 tableHeaders: ["공장명", "재난 유형", "거리 (km)", "발생 시각", "강도", "경고 수준", "✨ AI 대응 방안"],
-                modalTitle: "AI 생성 대응 방안",
                 alertLevels: { safe: "안전", caution: "주의", warning: "경계", severe: "심각" },
                 disasterTypes: { typhoon: "태풍", earthquake: "지진", flood: "홍수", volcano: "화산" },
-                status: { loading: "최신 재난 정보를 불러오는 중...", noDisaster: "누적된 재난 정보가 없습니다.", noAffected: "감지된 재난이 없거나, 1000km 이내의 공장은 없습니다.", error: "오류", generate: "생성", updating: "업데이트 중..." },
-                aiPrompt: (d, f) => `당신은 기업 위기관리 전문가입니다. 다음 정보를 바탕으로, 해당 공장이 즉시 실행해야 할 구체적인 행동 계획을 한국어로, 명확한 글머리 기호 목록 형태로 생성해주세요:\n- 재난 유형: ${d.type}\n- 재난 강도: ${d.severity}\n- 재난 이름: ${d.eventName}\n- 대상 공장: ${f.name}\n- 공장과의 거리: ${f.distance.toFixed(1)} km`,
-                infoWindowText: (d, n, m) => `<strong>${d.eventName}</strong><br>종류: ${d.type}<br>시간: ${new Date(d.time).toLocaleString('ko-KR')}<br>${d.severity}<br>최근접: ${n} (${m.toFixed(1)} km)`,
-                confirmClearHistory: "정말로 모든 이력을 삭제하시겠습니까?", confirmYes: "예", confirmNo: "아니요",
-                toggleMapBtn: "🛰️ 위성 지도", toggleMapBtnStyled: "🗺️ 기본 지도"
+                status: { loading: "로딩 중...", noDisaster: "누적된 재난 정보가 없습니다.", noAffected: "1000km 이내 위험에 처한 공장이 없습니다.", error: "오류", generate: "생성" },
+                toggleMapBtn: "🛰️ 위성 지도", toggleMapBtnStyled: "🗺️ 기본 지도",
+                manageContactsBtn: "알림 대상 관리", settingsModalTitle: "알림 대상 연락처 관리", addContactBtn: "연락처 추가",
+                manualNotifyBtn: "📢 전체 알림 발송", notificationTitle: "🚨 긴급 재난 알림",
+                notificationBody: (text) => `다음 공장들이 위험에 근접했습니다:\n\n${text}`,
+                kakaoMessage: (text) => `[긴급 재난 알림]\n\n다음 공장들이 재난 위험에 근접했습니다:\n\n${text}\n\n자세한 내용은 대시보드에서 확인하세요.`
             },
             en: {
                 mainTitle: "✨ AI-Powered Real-Time Disaster Dashboard", mainSubtitle: "Visualize disaster data from GDACS and generate custom action plans with Gemini AI.",
-                mapTitle: "Cumulative Disaster Map", clearHistoryBtn: "Clear History ↻", mapSubtitle: "View all detected disasters on the map. New disaster information is automatically accumulated.",
-                tableTitle: "At-Risk Factory List", tableSubtitle: "This list shows factories located within 1000km of a detected disaster. Click 'Generate' to get AI-suggested response measures.",
-                tableHeaders: ["Factory Name", "Disaster Type", "Distance (km)", "Time", "Severity", "Alert Level", "✨ AI Action Plan"],
-                modalTitle: "AI-Generated Action Plan",
+                mapTitle: "Cumulative Disaster Map", clearHistoryBtn: "Clear History ↻", mapSubtitle: "View all detected disasters on the map.",
+                tableTitle: "At-Risk Factory List", tableSubtitle: "Factories located within 1000km of a detected disaster.",
+                tableHeaders: ["Factory", "Disaster", "Distance (km)", "Time", "Severity", "Alert Level", "✨ AI Action Plan"],
                 alertLevels: { safe: "Safe", caution: "Caution", warning: "Warning", severe: "Severe" },
                 disasterTypes: { typhoon: "Typhoon", earthquake: "Earthquake", flood: "Flood", volcano: "Volcano" },
-                status: { loading: "Loading latest disaster information...", noDisaster: "No cumulative disaster data found.", noAffected: "No disasters detected, or no factories are within 1000km.", error: "Error", generate: "Generate", updating: "Updating..." },
-                aiPrompt: (d, f) => `You are a corporate crisis management expert. Based on the following information, generate a specific action plan in clear bullet points that the specified factory should execute immediately. The response must be in English:\n- Disaster Type: ${d.type}\n- Disaster Severity: ${d.severity}\n- Disaster Name: ${d.eventName}\n- Target Factory: ${f.name}\n- Distance from Factory: ${f.distance.toFixed(1)} km`,
-                infoWindowText: (d, n, m) => `<strong>${d.eventName}</strong><br>Type: ${d.type}<br>Time: ${new Date(d.time).toLocaleString('en-US')}<br>${d.severity}<br>Nearest: ${n} (${m.toFixed(1)} km)`,
-                confirmClearHistory: "Are you sure you want to clear all history?", confirmYes: "Yes", confirmNo: "No",
-                toggleMapBtn: "🛰️ Satellite Map", toggleMapBtnStyled: "🗺️ Styled Map"
+                status: { loading: "Loading...", noDisaster: "No cumulative disaster data.", noAffected: "No factories are at risk within 1000km.", error: "Error", generate: "Generate" },
+                toggleMapBtn: "🛰️ Satellite Map", toggleMapBtnStyled: "🗺️ Styled Map",
+                manageContactsBtn: "Manage Contacts", settingsModalTitle: "Manage Notification Contacts", addContactBtn: "Add Contact",
+                manualNotifyBtn: "📢 Send Notifications", notificationTitle: "🚨 URGENT DISASTER ALERT",
+                notificationBody: (text) => `The following factories are in close proximity to a disaster:\n\n${text}`,
+                kakaoMessage: (text) => `[Urgent Disaster Alert]\n\nThe following factories are at risk:\n\n${text}\n\nCheck the dashboard for details.`
             }
         };
-        const alertClasses = { safe: "alert-safe", caution: "alert-caution", warning: "alert-warning", severe: "alert-severe"};
-        const disasterColors = { typhoon: '#E53935', earthquake: '#1E88E5', flood: '#43A047', volcano: '#FF9800' };
 
         // --- 2. STATE MANAGEMENT ---
         let currentLanguage = localStorage.getItem('disasterDashboardLanguage') || 'ko';
-        let leafletMap = null;
-        let styledMapLayer = null;
-        let satelliteLayer = null;
-        let disasterLayerGroup = null;
+        let leafletMap, styledMapLayer, satelliteLayer, disasterLayerGroup;
         let cumulativeDisasters = [];
-        let affectedFactoryList = []; // Optimization: Pre-processed list of at-risk factories
-        let currentMapTypeId = 'styled_map'; // 'styled_map' or 'satellite'
+        let affectedFactoryList = [];
+        let currentMapTypeId = 'styled_map';
+        let registeredContacts = [];
+        let notificationSentForDisasterIds = new Set();
         
-        // --- 3. UTILITY FUNCTIONS ---
-        const toRad = (value) => value * Math.PI / 180;
+        // --- 3. UTILITY & HELPER FUNCTIONS ---
+        const toRad = (v) => v * Math.PI / 180;
         const haversineDistance = (c1, c2) => { const R = 6371; const dLat = toRad(c2.lat - c1.lat); const dLon = toRad(c2.lng - c1.lng); const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(c1.lat)) * Math.cos(toRad(c2.lat)) * Math.sin(dLon / 2) ** 2; return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); };
-        const getAlertLevelKey = (distance) => { if (distance > 300) return 'safe'; if (distance > 200) return 'caution'; if (distance > 100) return 'warning'; return 'severe'; };
+        const getAlertLevelKey = (d) => { if (d > 300) return 'safe'; if (d > 200) return 'caution'; if (d > 100) return 'warning'; return 'severe'; };
         const getTagText = (item, tag) => item.querySelector(tag)?.textContent.trim() || null;
         const getStoredDisasters = () => JSON.parse(localStorage.getItem('cumulativeDisasters')) || [];
-        const setStoredDisasters = (disasters) => localStorage.setItem('cumulativeDisasters', JSON.stringify(disasters));
+        const setStoredDisasters = (d) => localStorage.setItem('cumulativeDisasters', JSON.stringify(d));
+        const saveContacts = () => localStorage.setItem('disasterContacts', JSON.stringify(registeredContacts));
+        const loadContacts = () => JSON.parse(localStorage.getItem('disasterContacts')) || [];
 
-        // --- 4. CORE APPLICATION LOGIC ---
+        // --- 4. CORE DATA & API LOGIC ---
         async function fetchDisasters() {
-            const PROXIES = [ { url: "https://api.allorigins.win/raw?url=", needsEncoding: true }, { url: "https://cors.deno.dev/", needsEncoding: false }, { url: "https://corsproxy.io/?", needsEncoding: false } ];
+            const PROXY_URL = "https://api.allorigins.win/raw?url=";
             const RSS_URL = "https://www.gdacs.org/xml/rss_24h.xml";
-            for (const proxy of PROXIES) {
-                try {
-                    const fetchUrl = proxy.needsEncoding ? proxy.url + encodeURIComponent(RSS_URL) : proxy.url + RSS_URL;
-                    const response = await fetch(fetchUrl, { signal: AbortSignal.timeout(15000) });
-                    if (response.ok) {
-                        const xmlText = await response.text(); const xml = new DOMParser().parseFromString(xmlText, "application/xml");
-                        if (xml.querySelector("parsererror")) throw new Error("XML parsing error.");
-                        return Array.from(xml.querySelectorAll("item")).map(item => {
-                            const typeRaw = getTagText(item, "gdacs\\:eventtype, eventtype")?.toLowerCase() || '';
-                            const disasterTypeMapping = { 'tc': 'typhoon', 'tropical cyclone': 'typhoon', 'eq': 'earthquake', 'fl': 'flood', 'flood': 'flood', 'vo': 'volcano', 'volcano': 'volcano' };
-                            const typeKey = Object.keys(disasterTypeMapping).find(key => typeRaw.includes(key));
-                            if (!typeKey) return null;
-
-                            const eventName = getTagText(item, "gdacs\\:eventname, eventname") || "Unnamed";
-                            const fromDate = getTagText(item, "gdacs\\:fromdate, fromdate") || new Date().toISOString();
-                            const id = `${eventName}-${fromDate}`;
-                            const lat = parseFloat(getTagText(item, "geo\\:lat, lat")); const lon = parseFloat(getTagText(item, "geo\\:long, long"));
-                            if (isNaN(lat) || isNaN(lon)) return null;
-                            const severityTag = item.querySelector("gdacs\\:severity, severity");
-                            const severity = severityTag ? `${severityTag.getAttribute("unit") === "M" ? "Magnitude" : "Wind"} ${severityTag.getAttribute("value")}${severityTag.getAttribute("unit") === "M" ? "" : "km/h"}` : "-";
-                            return { id, eventName, typeKey: disasterTypeMapping[typeKey], location: { lat, lng: lon }, severity, time: fromDate };
-                        }).filter(Boolean);
-                    }
-                } catch (e) { console.error(`Proxy ${proxy.url} failed:`, e); }
+            try {
+                const response = await fetch(`${PROXY_URL}${encodeURIComponent(RSS_URL)}`, { signal: AbortSignal.timeout(15000) });
+                if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
+                const xmlText = await response.text();
+                const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+                if (xml.querySelector("parsererror")) throw new Error("XML parsing error.");
+                return Array.from(xml.querySelectorAll("item")).map(item => {
+                    const typeRaw = getTagText(item, "gdacs\\:eventtype, eventtype")?.toLowerCase() || '';
+                    const mapping = { 'tc': 'typhoon', 'eq': 'earthquake', 'fl': 'flood', 'vo': 'volcano' };
+                    const typeKey = Object.keys(mapping).find(k => typeRaw.includes(k));
+                    if (!typeKey) return null;
+                    const eventName = getTagText(item, "gdacs\\:eventname, eventname") || "Unnamed";
+                    const fromDate = getTagText(item, "gdacs\\:fromdate, fromdate") || new Date().toISOString();
+                    const lat = parseFloat(getTagText(item, "geo\\:lat, lat"));
+                    const lon = parseFloat(getTagText(item, "geo\\:long, long"));
+                    if (isNaN(lat) || isNaN(lon)) return null;
+                    const severityTag = item.querySelector("gdacs\\:severity, severity");
+                    const severity = severityTag ? `${severityTag.getAttribute("unit") === "M" ? "Mag" : "Wind"} ${severityTag.getAttribute("value")}` : "-";
+                    return { id: `${eventName}-${fromDate}`, eventName, typeKey: mapping[typeKey], location: { lat, lng: lon }, severity, time: fromDate };
+                }).filter(Boolean);
+            } catch (e) {
+                console.error("Failed to fetch disaster data:", e);
+                throw e; // Propagate error to be handled in UI
             }
-            throw new Error('Could not retrieve disaster data from any proxy.');
         }
-        
-        async function generateActionPlan(disaster, factory, lang) {
-            const apiKey = ""; // Gemini API Key is automatically provided.
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            const prompt = translations[lang].aiPrompt(disaster, factory);
-            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+
+        async function generateActionPlan(disaster, factory) {
+            if (!GEMINI_API_KEY) {
+                console.error("Gemini API Key is not configured. AI features will be disabled.");
+                return "Gemini API Key is not configured.";
+            }
+            const t = translations[currentLanguage];
+            const prompt = `You are a crisis management expert. For a ${disaster.typeKey} named '${disaster.eventName}' (${disaster.severity}) that is ${factory.distance.toFixed(1)} km away from the '${factory.factoryName}' factory, provide a concise, bulleted list of immediate action items in ${currentLanguage === 'ko' ? 'Korean' : 'English'}.`;
+            
+            const model = 'gemini-2.5-flash-preview-05-20';
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
             if (!response.ok) throw new Error(`Gemini API Error (HTTP ${response.status})`);
             const result = await response.json();
             return result.candidates?.[0]?.content?.parts?.[0]?.text || "No response from AI.";
         }
-        
-        // Optimization: This function performs heavy calculations and is called only when data changes.
+
         function processDisasterData() {
             affectedFactoryList = [];
             if (cumulativeDisasters.length === 0) return;
-
             cumulativeDisasters.forEach((disaster, disasterIndex) => {
                 Object.entries(factories).forEach(([factoryName, factoryLocation]) => {
                     const distance = haversineDistance(disaster.location, factoryLocation);
                     if (distance <= 1000) {
-                        affectedFactoryList.push({
-                            factoryName: factoryName,
-                            disaster: disaster,
-                            disasterIndex: disasterIndex,
-                            distance: distance
-                        });
+                        affectedFactoryList.push({ factoryName, disaster, disasterIndex, distance });
                     }
                 });
             });
-            // Sort by distance for a more organized table view
             affectedFactoryList.sort((a, b) => a.distance - b.distance);
         }
 
-        // --- 5. UI RENDERING & EVENT HANDLING ---
-        function updateMapToggleButtonText(lang) {
+        // --- 5. NOTIFICATION LOGIC ---
+        function getNotificationMessage(lang) {
             const t = translations[lang];
-            const btn = document.getElementById('toggle-map-btn');
-            btn.textContent = (currentMapTypeId === 'styled_map') ? t.toggleMapBtn : t.toggleMapBtnStyled;
+            return affectedFactoryList.map(item => `- ${item.factoryName} (${t.disasterTypes[item.disaster.typeKey]}까지 ${item.distance.toFixed(1)}km)`).join('\n');
         }
 
+        async function sendEmail(contact, subject, message) {
+            try {
+                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_name: contact.name, to_email: contact.email, subject, message: message.replace(/\n/g, '<br>') });
+                console.log(`Email sent to ${contact.email}`);
+            } catch (error) { console.error(`Failed to send email to ${contact.email}:`, error); }
+        }
+
+        function sendKakaoTalkMessage(message) {
+            Kakao.Link.sendDefault({
+                objectType: 'text', text: message,
+                link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
+                buttons: [{ title: '대시보드 바로가기', link: { mobileWebUrl: window.location.href, webUrl: window.location.href } }],
+            });
+        }
+
+        async function sendNotifications(isManual = false) {
+            const t = translations[currentLanguage];
+            if (affectedFactoryList.length === 0 || registeredContacts.length === 0) {
+                if (isManual) alert(t.status.noAffected);
+                return;
+            }
+            const factoryListText = getNotificationMessage(currentLanguage);
+            const subject = t.notificationTitle;
+            const emailBody = t.notificationBody(factoryListText);
+            const kakaoBody = t.kakaoMessage(factoryListText);
+            for (const contact of registeredContacts) { await sendEmail(contact, subject, emailBody); }
+            sendKakaoTalkMessage(kakaoBody);
+            if (isManual) alert("알림이 발송되었습니다. (카카오톡은 공유창이 열립니다)");
+        }
+
+        // --- 6. UI RENDERING & DOM MANIPULATION ---
         function updateStaticUI(lang) {
             const t = translations[lang];
             document.documentElement.lang = lang;
             document.querySelectorAll('[data-lang-key]').forEach(el => { el.textContent = t[el.dataset.langKey] || ''; });
-            document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.lang === lang));
+            document.querySelectorAll('#lang-switcher button').forEach(btn => btn.style.background = btn.dataset.lang === lang ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '');
             document.getElementById('table-header-row').innerHTML = t.tableHeaders.map(h => `<th>${h}</th>`).join('');
-            updateMapToggleButtonText(lang);
+            document.getElementById('toggle-map-btn').textContent = (currentMapTypeId === 'styled_map') ? t.toggleMapBtn : t.toggleMapBtnStyled;
         }
-        
-        // Optimization: This function now focuses only on rendering, using pre-processed data.
+
         function renderContent(lang) {
             const tbody = document.getElementById('distanceTableBody');
             const t = translations[lang];
-            
-            // Render Map Markers
-            if (!leafletMap || !disasterLayerGroup) return;
             disasterLayerGroup.clearLayers();
-            
-            cumulativeDisasters.forEach((disaster) => {
-                let nearestFactory = { name: null, distance: Infinity };
-                Object.entries(factories).forEach(([fname, floc]) => {
-                    const dist = haversineDistance(disaster.location, floc);
-                    if (dist < nearestFactory.distance) { nearestFactory = { name: fname, distance: dist }; }
-                });
-
-                const marker = L.circleMarker(disaster.location, {
-                    radius: 8,
-                    color: "#FFFFFF",
-                    weight: 2,
-                    fillColor: disasterColors[disaster.typeKey] || '#9E9E9E',
-                    fillOpacity: 0.9,
-                }).addTo(disasterLayerGroup);
-                
-                disaster.type = t.disasterTypes[disaster.typeKey]; // Translate for tooltip
-                marker.bindTooltip(t.infoWindowText(disaster, nearestFactory.name, nearestFactory.distance));
+            cumulativeDisasters.forEach(disaster => {
+                const marker = L.circleMarker(disaster.location, { radius: 8, color: "#fff", weight: 2, fillColor: ({typhoon: '#E53935', earthquake: '#1E88E5', flood: '#43A047', volcano: '#FF9800'})[disaster.typeKey], fillOpacity: 0.9 }).addTo(disasterLayerGroup);
+                marker.bindTooltip(`<strong>${disaster.eventName}</strong><br>${t.disasterTypes[disaster.typeKey]} | ${disaster.severity}`);
             });
-
-            // Render Table
-            if (cumulativeDisasters.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7">${t.status.noDisaster}</td></tr>`;
-                return;
-            }
             if (affectedFactoryList.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7">${t.status.noAffected}</td></tr>`;
-                return;
+                tbody.innerHTML = `<tr><td colspan="7">${cumulativeDisasters.length === 0 ? t.status.noDisaster : t.status.noAffected}</td></tr>`;
+            } else {
+                tbody.innerHTML = affectedFactoryList.map(item => {
+                    const { factoryName, disaster, disasterIndex, distance } = item;
+                    const alertLevelKey = getAlertLevelKey(distance);
+                    return `<tr data-disaster-index="${disasterIndex}" data-factory-name="${factoryName}" data-distance="${distance}">
+                        <td>${factoryName}</td>
+                        <td>${t.disasterTypes[disaster.typeKey]}</td><td>${distance.toFixed(1)}</td>
+                        <td>${new Date(disaster.time).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US')}</td><td>${disaster.severity}</td>
+                        <td>${t.alertLevels[alertLevelKey]}</td>
+                        <td><button class="ai-action-btn">${t.status.generate}</button></td>
+                    </tr>`;
+                }).join('');
             }
-            
-            const tableRowsHTML = affectedFactoryList.map(item => {
-                const { factoryName, disaster, disasterIndex, distance } = item;
-                const alertLevelKey = getAlertLevelKey(distance);
-                const alertLevelText = t.alertLevels[alertLevelKey];
-                const locale = lang === 'ko' ? 'ko-KR' : 'en-US';
-                const formattedTime = new Date(disaster.time).toLocaleString(locale);
-                const disasterType = t.disasterTypes[disaster.typeKey];
-
-                return `<tr class="${alertClasses[alertLevelKey]}" data-disaster-index="${disasterIndex}" data-factory-name="${factoryName}" data-distance="${distance}">
-                    <td>${factoryName}</td>
-                    <td>${disasterType}</td><td>${distance.toFixed(1)}</td>
-                    <td>${formattedTime}</td><td>${disaster.severity}</td>
-                    <td>${alertLevelText}</td>
-                    <td><button class="ai-action-btn">${t.status.generate}</button></td>
-                </tr>`;
-            }).join('');
-            tbody.innerHTML = tableRowsHTML;
+            document.getElementById('manual-notify-btn').style.display = affectedFactoryList.length > 0 ? 'inline-block' : 'none';
         }
-        
-        // Optimization: Fetches data, and if new data is found, processes and re-renders.
+
         async function fetchAndUpdateData() {
             try {
                 const newDisasters = await fetchDisasters();
                 const storedIds = new Set(cumulativeDisasters.map(d => d.id));
                 const trulyNewDisasters = newDisasters.filter(d => !storedIds.has(d.id));
-                
                 if (trulyNewDisasters.length > 0) {
                     cumulativeDisasters = [...trulyNewDisasters, ...cumulativeDisasters];
                     setStoredDisasters(cumulativeDisasters);
-                    processDisasterData(); // Process only new data
-                    renderContent(currentLanguage); // Re-render with new data
+                    processDisasterData();
+                    renderContent(currentLanguage);
+                    const newDisasterIds = new Set(trulyNewDisasters.map(d => d.id));
+                    const shouldSend = affectedFactoryList.length > 0 && [...newDisasterIds].some(id => !notificationSentForDisasterIds.has(id));
+                    if (shouldSend) {
+                        await sendNotifications(false);
+                        newDisasterIds.forEach(id => notificationSentForDisasterIds.add(id));
+                    }
                 }
             } catch (err) {
-                console.error(err);
                 const tbody = document.getElementById('distanceTableBody');
-                const t = translations[currentLanguage];
-                if (tbody.rows.length === 0 || (tbody.rows[0].cells.length === 1)) {
-                    tbody.innerHTML = `<tr><td colspan="7" style="color:#ff6b6b;">${t.status.error}: ${err.message}</td></tr>`;
-                }
+                tbody.innerHTML = `<tr><td colspan="7" style="color:#ff6b6b;">${translations[currentLanguage].status.error}: ${err.message}</td></tr>`;
             }
         }
-        
-        // Optimization: Language switching is now instant.
+
+        // --- 7. EVENT LISTENERS & INITIALIZATION ---
         function setLanguage(lang) {
             currentLanguage = lang;
             localStorage.setItem('disasterDashboardLanguage', lang);
             updateStaticUI(lang);
-            renderContent(lang); 
+            renderContent(lang);
         }
 
         function toggleMapType() {
-            const mapDiv = document.getElementById('map');
             if (leafletMap.hasLayer(styledMapLayer)) {
                 leafletMap.removeLayer(styledMapLayer);
                 leafletMap.addLayer(satelliteLayer);
                 currentMapTypeId = 'satellite';
-                mapDiv.classList.remove('styled-map-active');
             } else {
                 leafletMap.removeLayer(satelliteLayer);
                 leafletMap.addLayer(styledMapLayer);
                 currentMapTypeId = 'styled_map';
-                mapDiv.classList.add('styled-map-active');
             }
-            updateMapToggleButtonText(currentLanguage);
+            updateStaticUI(currentLanguage);
         }
 
-        // --- 6. INITIALIZATION ---
-        function initApp() {
-            const tbody = document.getElementById('distanceTableBody');
-            const mapDiv = document.getElementById('map');
-            
-            leafletMap = L.map(mapDiv, { worldCopyJump: true }).setView([30, 120], 3);
+        function renderContactsList() {
+            document.getElementById('contacts-list').innerHTML = registeredContacts.map((contact, index) =>
+                `<li><div><strong>${contact.name}</strong><br><small>${contact.email} / ${contact.phone}</small></div>
+                 <button class="delete-contact-btn" data-index="${index}">&times;</button></li>`
+            ).join('');
+        }
 
-            styledMapLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                maxZoom: 19
-            });
-            satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-	            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-            });
-
-            if (currentMapTypeId === 'satellite') {
-                satelliteLayer.addTo(leafletMap);
-            } else {
-                styledMapLayer.addTo(leafletMap);
+        document.addEventListener('DOMContentLoaded', () => {
+            // Init APIs safely
+            try {
+                if (KAKAO_JAVASCRIPT_KEY) Kakao.init(KAKAO_JAVASCRIPT_KEY);
+                else console.warn("Kakao JavaScript Key is not provided.");
+            } catch (e) {
+                console.error("Failed to initialize Kakao SDK. Kakao features will be unavailable.", e);
             }
-            
-            disasterLayerGroup = L.layerGroup().addTo(leafletMap);
+            try {
+                if (EMAILJS_PUBLIC_KEY) emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+                else console.warn("EmailJS Public Key is not provided.");
+            } catch (e) {
+                console.error("Failed to initialize EmailJS SDK. Email features will be unavailable.", e);
+            }
 
+            // Init Map
+            leafletMap = L.map('map', { worldCopyJump: true }).setView([30, 120], 3);
+            styledMapLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(leafletMap);
+            satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '&copy; Esri' });
+            disasterLayerGroup = L.layerGroup().addTo(leafletMap);
             Object.entries(factories).forEach(([name, loc]) => {
-                L.circleMarker(loc, {
-                    radius: 4, color: '#000', weight: 1,
-                    fillColor: "#FFC107", fillOpacity: 0.9,
-                }).addTo(leafletMap).bindTooltip(name);
+                L.circleMarker(loc, { radius: 4, color: '#000', weight: 1, fillColor: "#FFC107", fillOpacity: 0.9 }).addTo(leafletMap).bindTooltip(name);
             });
-            
-            // Optimization: Load, process, and render stored data instantly.
+
+            // Load initial data
+            registeredContacts = loadContacts();
             cumulativeDisasters = getStoredDisasters();
             processDisasterData();
-            setLanguage(currentLanguage); // This now just renders the UI.
-
-            // Optimization: Fetch updates in the background after the initial render.
-            const t = translations[currentLanguage];
-            if (tbody.rows.length === 0 || (tbody.rows.length > 0 && tbody.rows[0].cells.length === 1)) {
-                tbody.innerHTML = `<tr><td colspan="7">${t.status.loading}</td></tr>`;
-            }
+            setLanguage(currentLanguage);
+            document.getElementById('distanceTableBody').innerHTML = `<tr><td colspan="7">${translations[currentLanguage].status.loading}</td></tr>`;
             fetchAndUpdateData();
-
-            // Optimization: Add periodic fetching.
             setInterval(fetchAndUpdateData, 300000); // 5 minutes
 
-            tbody.addEventListener('click', async (e) => {
-                const btn = e.target.closest('.ai-action-btn');
-                if (!btn) return;
-                const row = btn.closest('tr');
-                const disaster = cumulativeDisasters[parseInt(row.dataset.disasterIndex)];
-                const factoryData = { name: row.dataset.factoryName, distance: parseFloat(row.dataset.distance) };
-                const originalText = btn.innerHTML;
-                btn.innerHTML = `<div class="spinner" style="margin: 0 auto;"></div>`; btn.disabled = true;
-                try {
-                    const actionPlan = await generateActionPlan(disaster, factoryData, currentLanguage);
-                    showAiModal(`${translations[currentLanguage].modalTitle}: '${factoryData.name}'`, actionPlan);
-                } catch (err) { showAiModal(translations[currentLanguage].status.error, err.message); }
-                finally { btn.innerHTML = originalText; btn.disabled = false; }
-            });
-
-            document.getElementById('lang-switcher').addEventListener('click', e => {
-                const newLang = e.target.closest('button')?.dataset.lang;
-                if (newLang && newLang !== currentLanguage) setLanguage(newLang);
-            });
-            
-            document.getElementById('clear-history-btn').addEventListener('click', () => { showConfirmModal(); });
+            // Event Listeners
+            document.getElementById('lang-switcher').addEventListener('click', e => e.target.dataset.lang && setLanguage(e.target.dataset.lang));
             document.getElementById('toggle-map-btn').addEventListener('click', toggleMapType);
-            
-            const aiModal = document.getElementById('ai-modal');
-            const aiModalTitle = document.getElementById('ai-modal-title');
-            const aiModalContent = document.getElementById('ai-modal-content');
-            const confirmModal = document.getElementById('confirm-modal');
-            const confirmModalText = document.getElementById('confirm-modal-text');
-            const confirmYesBtn = document.getElementById('confirm-yes-btn');
-            const confirmNoBtn = document.getElementById('confirm-no-btn');
-            
-            function showAiModal(title, content) { aiModalTitle.textContent = title; aiModalContent.textContent = content; aiModal.classList.add('flex'); }
-            function hideAiModal() { aiModal.classList.remove('flex'); }
-            
-            function showConfirmModal() {
-                const t = translations[currentLanguage];
-                confirmModalText.textContent = t.confirmClearHistory;
-                confirmYesBtn.textContent = t.confirmYes;
-                confirmNoBtn.textContent = t.confirmNo;
-                confirmModal.classList.add('flex');
-            }
-            function hideConfirmModal() { confirmModal.classList.remove('flex'); }
-            
-            document.getElementById('ai-modal-close').addEventListener('click', hideAiModal);
-            aiModal.addEventListener('click', e => { if (e.target === aiModal) hideAiModal(); });
-
-            confirmYesBtn.addEventListener('click', () => {
-                cumulativeDisasters = [];
-                setStoredDisasters([]);
-                processDisasterData(); // Re-process after clearing
-                renderContent(currentLanguage);
-                hideConfirmModal();
+            document.getElementById('clear-history-btn').addEventListener('click', () => {
+                cumulativeDisasters = []; setStoredDisasters([]); processDisasterData(); renderContent(currentLanguage);
             });
-            confirmNoBtn.addEventListener('click', hideConfirmModal);
-            confirmModal.addEventListener('click', e => { if (e.target === confirmModal) hideConfirmModal(); });
-        }
-        
-        document.addEventListener('DOMContentLoaded', initApp);
+            document.getElementById('distanceTableBody').addEventListener('click', async (e) => {
+                if (!e.target.classList.contains('ai-action-btn')) return;
+                const row = e.target.closest('tr');
+                const disaster = cumulativeDisasters[parseInt(row.dataset.disasterIndex)];
+                const factory = { factoryName: row.dataset.factoryName, distance: parseFloat(row.dataset.distance) };
+                const modal = document.getElementById('ai-modal');
+                const modalTitle = document.getElementById('ai-modal-title');
+                const modalContent = document.getElementById('ai-modal-content');
+                modalTitle.textContent = "AI 분석 중...";
+                modalContent.textContent = "";
+                modal.classList.add('flex');
+                try {
+                    const plan = await generateActionPlan(disaster, factory);
+                    modalTitle.textContent = `AI 대응 방안: ${factory.factoryName}`;
+                    modalContent.textContent = plan;
+                } catch (err) {
+                    modalTitle.textContent = "오류 발생";
+                    modalContent.textContent = err.message;
+                }
+            });
+            
+            // Modal Listeners
+            const aiModal = document.getElementById('ai-modal');
+            const settingsModal = document.getElementById('settings-modal');
+            document.getElementById('ai-modal-close').addEventListener('click', () => aiModal.classList.remove('flex'));
+            document.getElementById('manage-contacts-btn').addEventListener('click', () => { renderContactsList(); settingsModal.classList.add('flex'); });
+            document.getElementById('settings-modal-close').addEventListener('click', () => settingsModal.classList.remove('flex'));
+            document.getElementById('settings-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                registeredContacts.push({ name: e.target.elements['contact-name'].value, email: e.target.elements['contact-email'].value, phone: e.target.elements['contact-phone'].value });
+                saveContacts(); renderContactsList(); e.target.reset();
+            });
+            document.getElementById('contacts-list').addEventListener('click', e => {
+                if (e.target.classList.contains('delete-contact-btn')) {
+                    registeredContacts.splice(parseInt(e.target.dataset.index), 1);
+                    saveContacts(); renderContactsList();
+                }
+            });
+            document.getElementById('manual-notify-btn').addEventListener('click', () => sendNotifications(true));
+        });
     </script>
 </body>
 </html>
-
