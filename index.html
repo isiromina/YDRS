@@ -150,11 +150,11 @@
             ko: {
                 mainTitle: "✨ AI 기반 실시간 재난 현황 대시보드", mainSubtitle: "GDACS 데이터를 기반으로 재난 정보를 시각화하고, Gemini AI를 통해 맞춤형 대응 방안을 생성합니다.",
                 mapTitle: "누적 재난 지도", clearHistoryBtn: "이력 초기화 ↻", mapSubtitle: "지금까지 감지된 모든 재난의 위치를 지도에서 확인하세요.",
-                tableTitle: "위험 근접 공장 목록", tableSubtitle: "감지된 재난으로부터 1000km 이내에 위치한 공장 목록입니다.",
+                tableTitle: "위험 근접 공장 목록", tableSubtitle: "감지된 재난으로부터 1500km 이내에 위치한 공장 목록입니다.",
                 tableHeaders: ["공장명", "재난 유형", "거리 (km)", "발생 시각", "강도", "경고 수준", "✨ AI 대응 방안"],
                 alertLevels: { safe: "안전", caution: "주의", warning: "경계", severe: "심각" },
                 disasterTypes: { typhoon: "태풍", earthquake: "지진", flood: "홍수", volcano: "화산" },
-                status: { loading: "로딩 중...", noDisaster: "누적된 재난 정보가 없습니다.", noAffected: "1000km 이내 위험에 처한 공장이 없습니다.", error: "오류", generate: "생성" },
+                status: { loading: "로딩 중...", noDisaster: "누적된 재난 정보가 없습니다.", noAffected: "1500km 이내 위험에 처한 공장이 없습니다.", error: "오류", generate: "생성" },
                 toggleMapBtn: "🛰️ 위성 지도", toggleMapBtnStyled: "🗺️ 기본 지도",
                 manageContactsBtn: "알림 대상 관리", settingsModalTitle: "알림 대상 연락처 관리", addContactBtn: "연락처 추가",
                 manualNotifyBtn: "📢 전체 알림 발송", notificationTitle: "🚨 긴급 재난 알림",
@@ -164,11 +164,11 @@
             en: {
                 mainTitle: "✨ AI-Powered Real-Time Disaster Dashboard", mainSubtitle: "Visualize disaster data from GDACS and generate custom action plans with Gemini AI.",
                 mapTitle: "Cumulative Disaster Map", clearHistoryBtn: "Clear History ↻", mapSubtitle: "View all detected disasters on the map.",
-                tableTitle: "At-Risk Factory List", tableSubtitle: "Factories located within 1000km of a detected disaster.",
+                tableTitle: "At-Risk Factory List", tableSubtitle: "Factories located within 1500km of a detected disaster.",
                 tableHeaders: ["Factory", "Disaster", "Distance (km)", "Time", "Severity", "Alert Level", "✨ AI Action Plan"],
                 alertLevels: { safe: "Safe", caution: "Caution", warning: "Warning", severe: "Severe" },
                 disasterTypes: { typhoon: "Typhoon", earthquake: "Earthquake", flood: "Flood", volcano: "Volcano" },
-                status: { loading: "Loading...", noDisaster: "No cumulative disaster data.", noAffected: "No factories are at risk within 1000km.", error: "Error", generate: "Generate" },
+                status: { loading: "Loading...", noDisaster: "No cumulative disaster data.", noAffected: "No factories are at risk within 1500km.", error: "Error", generate: "Generate" },
                 toggleMapBtn: "🛰️ Satellite Map", toggleMapBtnStyled: "🗺️ Styled Map",
                 manageContactsBtn: "Manage Contacts", settingsModalTitle: "Manage Notification Contacts", addContactBtn: "Add Contact",
                 manualNotifyBtn: "📢 Send Notifications", notificationTitle: "🚨 URGENT DISASTER ALERT",
@@ -184,7 +184,7 @@
         let affectedFactoryList = [];
         let currentMapTypeId = 'styled_map';
         let registeredContacts = [];
-        let notificationSentForDisasterIds = new Set();
+        let notificationLog = {};
         
         // --- 3. UTILITY & HELPER FUNCTIONS ---
         const toRad = (v) => v * Math.PI / 180;
@@ -195,6 +195,8 @@
         const setStoredDisasters = (d) => localStorage.setItem('cumulativeDisasters', JSON.stringify(d));
         const saveContacts = () => localStorage.setItem('disasterContacts', JSON.stringify(registeredContacts));
         const loadContacts = () => JSON.parse(localStorage.getItem('disasterContacts')) || [];
+        const loadNotificationLog = () => JSON.parse(localStorage.getItem('notificationLog')) || {};
+        const saveNotificationLog = (log) => localStorage.setItem('notificationLog', JSON.stringify(log));
 
         // --- 4. CORE DATA & API LOGIC ---
         async function fetchDisasters() {
@@ -217,7 +219,24 @@
                     const lon = parseFloat(getTagText(item, "geo\\:long, long"));
                     if (isNaN(lat) || isNaN(lon)) return null;
                     const severityTag = item.querySelector("gdacs\\:severity, severity");
-                    const severity = severityTag ? `${severityTag.getAttribute("unit") === "M" ? "Mag" : "Wind"} ${severityTag.getAttribute("value")}` : "-";
+                    let severity = "-";
+                    if (severityTag) {
+                        const unit = severityTag.getAttribute("unit");
+                        const valueAttr = severityTag.getAttribute("value") || "";
+                        const numericValue = parseFloat(valueAttr.replace(/[^0-9.-]/g, ''));
+
+                        if (!isNaN(numericValue)) {
+                            if (unit === "M") {
+                                severity = `Mag ${numericValue.toFixed(1)}`;
+                            } else if (unit === "km/h" || typeKey === 'typhoon') {
+                                severity = `Wind ${numericValue.toFixed(2)} km/h`;
+                            } else {
+                                severity = `${unit || 'Val'}: ${numericValue.toFixed(2)}`;
+                            }
+                        } else {
+                            severity = valueAttr;
+                        }
+                    }
                     return { id: `${eventName}-${fromDate}`, eventName, typeKey: mapping[typeKey], location: { lat, lng: lon }, severity, time: fromDate };
                 }).filter(Boolean);
             } catch (e) {
@@ -227,10 +246,6 @@
         }
 
         async function generateActionPlan(disaster, factory) {
-            if (!GEMINI_API_KEY) {
-                console.error("Gemini API Key is not configured. AI features will be disabled.");
-                return "Gemini API Key is not configured.";
-            }
             const t = translations[currentLanguage];
             const prompt = `You are a crisis management expert. For a ${disaster.typeKey} named '${disaster.eventName}' (${disaster.severity}) that is ${factory.distance.toFixed(1)} km away from the '${factory.factoryName}' factory, provide a concise, bulleted list of immediate action items in ${currentLanguage === 'ko' ? 'Korean' : 'English'}.`;
             
@@ -253,7 +268,7 @@
             cumulativeDisasters.forEach((disaster, disasterIndex) => {
                 Object.entries(factories).forEach(([factoryName, factoryLocation]) => {
                     const distance = haversineDistance(disaster.location, factoryLocation);
-                    if (distance <= 1000) {
+                    if (distance <= 1500) {
                         affectedFactoryList.push({ factoryName, disaster, disasterIndex, distance });
                     }
                 });
@@ -262,11 +277,6 @@
         }
 
         // --- 5. NOTIFICATION LOGIC ---
-        function getNotificationMessage(lang) {
-            const t = translations[lang];
-            return affectedFactoryList.map(item => `- ${item.factoryName} (${t.disasterTypes[item.disaster.typeKey]}까지 ${item.distance.toFixed(1)}km)`).join('\n');
-        }
-
         async function sendEmail(contact, subject, message) {
             try {
                 await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_name: contact.name, to_email: contact.email, subject, message: message.replace(/\n/g, '<br>') });
@@ -274,28 +284,64 @@
             } catch (error) { console.error(`Failed to send email to ${contact.email}:`, error); }
         }
 
-        function sendKakaoTalkMessage(message) {
-            Kakao.Link.sendDefault({
-                objectType: 'text', text: message,
-                link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
-                buttons: [{ title: '대시보드 바로가기', link: { mobileWebUrl: window.location.href, webUrl: window.location.href } }],
-            });
-        }
-
-        async function sendNotifications(isManual = false) {
+        async function sendNotifications(isManual = false, itemsToNotify = null) {
             const t = translations[currentLanguage];
-            if (affectedFactoryList.length === 0 || registeredContacts.length === 0) {
+            const list = itemsToNotify || affectedFactoryList;
+
+            if (list.length === 0 || registeredContacts.length === 0) {
                 if (isManual) alert(t.status.noAffected);
                 return;
             }
-            const factoryListText = getNotificationMessage(currentLanguage);
+
+            const factoryListText = list.map(item => `- ${item.factoryName} (${t.disasterTypes[item.disaster.typeKey]}까지 ${item.distance.toFixed(1)}km)`).join('\n');
             const subject = t.notificationTitle;
             const emailBody = t.notificationBody(factoryListText);
             const kakaoBody = t.kakaoMessage(factoryListText);
+
             for (const contact of registeredContacts) { await sendEmail(contact, subject, emailBody); }
-            sendKakaoTalkMessage(kakaoBody);
+            
+            if (typeof Kakao !== 'undefined' && Kakao.isInitialized() && Kakao.Link) {
+                Kakao.Link.sendDefault({
+                    objectType: 'text', text: kakaoBody,
+                    link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
+                    buttons: [{ title: '대시보드 바로가기', link: { mobileWebUrl: window.location.href, webUrl: window.location.href } }],
+                });
+            } else {
+                console.error("Kakao SDK is not available or initialized. Cannot send message.");
+            }
+
             if (isManual) alert("알림이 발송되었습니다. (카카오톡은 공유창이 열립니다)");
         }
+        
+        async function handleAutomaticNotifications() {
+            const now = Date.now();
+            const oneHour = 60 * 60 * 1000;
+
+            const uniqueDisastersInList = cumulativeDisasters.filter(disaster => 
+                affectedFactoryList.some(item => item.disaster.id === disaster.id)
+            );
+
+            const disasterIdsToNotify = new Set();
+            for (const disaster of uniqueDisastersInList) {
+                const lastSent = notificationLog[disaster.id] || 0;
+                if (!lastSent || (now - lastSent > oneHour)) {
+                    disasterIdsToNotify.add(disaster.id);
+                }
+            }
+
+            if (disasterIdsToNotify.size > 0) {
+                const itemsToNotify = affectedFactoryList.filter(item => disasterIdsToNotify.has(item.disaster.id));
+                
+                if (itemsToNotify.length > 0) {
+                    await sendNotifications(false, itemsToNotify);
+                    disasterIdsToNotify.forEach(id => {
+                        notificationLog[id] = now;
+                    });
+                    saveNotificationLog(notificationLog);
+                }
+            }
+        }
+
 
         // --- 6. UI RENDERING & DOM MANIPULATION ---
         function updateStaticUI(lang) {
@@ -313,7 +359,7 @@
             disasterLayerGroup.clearLayers();
             cumulativeDisasters.forEach(disaster => {
                 const marker = L.circleMarker(disaster.location, { radius: 8, color: "#fff", weight: 2, fillColor: ({typhoon: '#E53935', earthquake: '#1E88E5', flood: '#43A047', volcano: '#FF9800'})[disaster.typeKey], fillOpacity: 0.9 }).addTo(disasterLayerGroup);
-                marker.bindTooltip(`<strong>${disaster.eventName}</strong><br>${t.disasterTypes[disaster.typeKey]} | ${disaster.severity}`);
+                marker.bindTooltip(`<strong>${disaster.eventName}</strong><br>${t.disasterTypes[disaster.typeKey]} | ${disaster.severity}<br>${new Date(disaster.time).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US')}`);
             });
             if (affectedFactoryList.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="7">${cumulativeDisasters.length === 0 ? t.status.noDisaster : t.status.noAffected}</td></tr>`;
@@ -338,17 +384,13 @@
                 const newDisasters = await fetchDisasters();
                 const storedIds = new Set(cumulativeDisasters.map(d => d.id));
                 const trulyNewDisasters = newDisasters.filter(d => !storedIds.has(d.id));
+                
                 if (trulyNewDisasters.length > 0) {
                     cumulativeDisasters = [...trulyNewDisasters, ...cumulativeDisasters];
                     setStoredDisasters(cumulativeDisasters);
                     processDisasterData();
                     renderContent(currentLanguage);
-                    const newDisasterIds = new Set(trulyNewDisasters.map(d => d.id));
-                    const shouldSend = affectedFactoryList.length > 0 && [...newDisasterIds].some(id => !notificationSentForDisasterIds.has(id));
-                    if (shouldSend) {
-                        await sendNotifications(false);
-                        newDisasterIds.forEach(id => notificationSentForDisasterIds.add(id));
-                    }
+                    await handleAutomaticNotifications();
                 }
             } catch (err) {
                 const tbody = document.getElementById('distanceTableBody');
@@ -410,18 +452,24 @@
 
             // Load initial data
             registeredContacts = loadContacts();
+            notificationLog = loadNotificationLog();
             cumulativeDisasters = getStoredDisasters();
             processDisasterData();
-            setLanguage(currentLanguage);
-            document.getElementById('distanceTableBody').innerHTML = `<tr><td colspan="7">${translations[currentLanguage].status.loading}</td></tr>`;
-            fetchAndUpdateData();
+            setLanguage(currentLanguage); // This now renders the cached data immediately
+            
+            fetchAndUpdateData(); // Fetch new data in the background
             setInterval(fetchAndUpdateData, 300000); // 5 minutes
 
             // Event Listeners
             document.getElementById('lang-switcher').addEventListener('click', e => e.target.dataset.lang && setLanguage(e.target.dataset.lang));
             document.getElementById('toggle-map-btn').addEventListener('click', toggleMapType);
             document.getElementById('clear-history-btn').addEventListener('click', () => {
-                cumulativeDisasters = []; setStoredDisasters([]); processDisasterData(); renderContent(currentLanguage);
+                cumulativeDisasters = []; 
+                setStoredDisasters([]); 
+                notificationLog = {};
+                saveNotificationLog({});
+                processDisasterData(); 
+                renderContent(currentLanguage);
             });
             document.getElementById('distanceTableBody').addEventListener('click', async (e) => {
                 if (!e.target.classList.contains('ai-action-btn')) return;
@@ -461,8 +509,9 @@
                     saveContacts(); renderContactsList();
                 }
             });
-            document.getElementById('manual-notify-btn').addEventListener('click', () => sendNotifications(true));
+            document.getElementById('manual-notify-btn').addEventListener('click', () => sendNotifications(true, affectedFactoryList));
         });
     </script>
 </body>
 </html>
+
