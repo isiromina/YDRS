@@ -45,54 +45,52 @@
     </style>
 </head>
 <body>
-
-    <div class="container">
-        <header>
-            <div>
-                <h1 data-lang-key="mainTitle"></h1>
-                <p data-lang-key="mainSubtitle"></p>
+<div class="container">
+    <header>
+        <div>
+            <h1 data-lang-key="mainTitle"></h1>
+            <p data-lang-key="mainSubtitle"></p>
+        </div>
+        <div style="display:flex;align-items:center;gap:1rem;">
+            <button id="manage-contacts-btn" class="btn" data-lang-key="manageContactsBtn">📇</button>
+            <button id="share-kakao-btn" class="btn">📲 카카오톡 공유</button>
+            <div id="lang-switcher" style="display:flex;gap:0.5rem;">
+                <button data-lang="ko" class="btn">🇰🇷 KO</button>
+                <button data-lang="en" class="btn">🇺🇸 EN</button>
             </div>
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                <button id="manage-contacts-btn" class="btn" data-lang-key="manageContactsBtn">📇 </button>
-                <div id="lang-switcher" style="display: flex; gap: 0.5rem;">
-                    <button data-lang="ko" class="btn">🇰🇷 KO</button>
-                    <button data-lang="en" class="btn">🇺🇸 EN</button>
+        </div>
+    </header>
+    <main>
+        <section id="map-section">
+            <div class="section-header">
+                <div>
+                    <h2 data-lang-key="mapTitle"></h2>
+                    <p class="section-subtitle" data-lang-key="mapSubtitle"></p>
+                </div>
+                <div style="display:flex;gap:0.5rem;align-items:center;">
+                    <button id="toggle-map-btn" class="btn"></button>
+                    <button id="clear-history-btn" class="btn btn-danger" data-lang-key="clearHistoryBtn"></button>
                 </div>
             </div>
-        </header>
-
-        <main>
-            <section id="map-section">
-                <div class="section-header">
-                    <div>
-                        <h2 data-lang-key="mapTitle"></h2>
-                        <p class="section-subtitle" data-lang-key="mapSubtitle"></p>
-                    </div>
-                    <div style="display: flex; gap: 0.5rem; align-items: center;">
-                        <button id="toggle-map-btn" class="btn"></button>
-                        <button id="clear-history-btn" class="btn btn-danger" data-lang-key="clearHistoryBtn"></button>
-                    </div>
+            <div id="map"></div>
+        </section>
+        <section id="table-section">
+            <div class="section-header">
+                <div>
+                    <h2 data-lang-key="tableTitle"></h2>
+                    <p class="section-subtitle" data-lang-key="tableSubtitle"></p>
                 </div>
-                <div id="map"></div>
-            </section>
-
-            <section id="table-section">
-                <div class="section-header">
-                    <div>
-                        <h2 data-lang-key="tableTitle"></h2>
-                        <p class="section-subtitle" data-lang-key="tableSubtitle"></p>
-                    </div>
-                    <button id="manual-notify-btn" class="btn" data-lang-key="manualNotifyBtn" style="display: none;"></button>
-                </div>
-                <div style="overflow-x: auto;">
-                    <table>
-                        <thead><tr id="table-header-row"></tr></thead>
-                        <tbody id="distanceTableBody"></tbody>
-                    </table>
-                </div>
-            </section>
-        </main>
-    </div>
+                <button id="manual-notify-btn" class="btn" data-lang-key="manualNotifyBtn" style="display:none;"></button>
+            </div>
+            <div style="overflow-x:auto;">
+                <table>
+                    <thead><tr id="table-header-row"></tr></thead>
+                    <tbody id="distanceTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
     
     <div id="ai-modal" class="modal-overlay">
         <div class="modal-content">
@@ -104,23 +102,23 @@
         </div>
     </div>
     
-    <div id="settings-modal" class="modal-overlay">
-        <div class="modal-content">
-            <header class="modal-header">
-                <h3 data-lang-key="settingsModalTitle"></h3>
-                <button id="settings-modal-close" class="modal-close-btn">&times;</button>
-            </header>
-            <div class="modal-body">
-                <form id="settings-form">
-                    <input type="text" id="contact-name" placeholder="Name" required>
-                    <input type="email" id="contact-email" placeholder="Email Address" required>
-                    <input type="tel" id="contact-phone" placeholder="Phone Number (e.g., 01012345678)" required>
-                    <button type="submit" class="btn" data-lang-key="addContactBtn"></button>
-                </form>
-                <ul id="contacts-list"></ul>
-            </div>
+<div id="settings-modal" class="modal-overlay">
+    <div class="modal-content">
+        <header class="modal-header">
+            <h3 data-lang-key="settingsModalTitle"></h3>
+            <button id="settings-modal-close" class="modal-close-btn">&times;</button>
+        </header>
+        <div class="modal-body">
+            <form id="settings-form">
+                <input type="text" id="contact-name" placeholder="Name" required>
+                <input type="email" id="contact-email" placeholder="Email Address" required>
+                <input type="tel" id="contact-phone" placeholder="Phone Number (e.g., 01012345678)" required>
+                <button type="submit" class="btn" data-lang-key="addContactBtn"></button>
+            </form>
+            <ul id="contacts-list"></ul>
         </div>
     </div>
+</div>
 
     <script>
         // --- 1. CONFIGURATION & CONSTANTS ---
@@ -158,7 +156,6 @@
                 toggleMapBtn: "🛰️ 위성 지도", toggleMapBtnStyled: "🗺️ 기본 지도",
                 manageContactsBtn: "알림 대상 관리", settingsModalTitle: "알림 대상 연락처 관리", addContactBtn: "연락처 추가",
                 manualNotifyBtn: "📢 전체 알림 발송", notificationTitle: "🚨 긴급 재난 알림",
-                notificationBody: (text) => `다음 공장들이 위험에 근접했습니다:\n\n${text}`,
                 kakaoMessage: (text) => `[긴급 재난 알림]\n\n다음 공장들이 재난 위험에 근접했습니다:\n\n${text}\n\n자세한 내용은 대시보드에서 확인하세요.`
             },
             en: {
@@ -172,7 +169,6 @@
                 toggleMapBtn: "🛰️ Satellite Map", toggleMapBtnStyled: "🗺️ Styled Map",
                 manageContactsBtn: "Manage Contacts", settingsModalTitle: "Manage Notification Contacts", addContactBtn: "Add Contact",
                 manualNotifyBtn: "📢 Send Notifications", notificationTitle: "🚨 URGENT DISASTER ALERT",
-                notificationBody: (text) => `The following factories are in close proximity to a disaster:\n\n${text}`,
                 kakaoMessage: (text) => `[Urgent Disaster Alert]\n\nThe following factories are at risk:\n\n${text}\n\nCheck the dashboard for details.`
             }
         };
@@ -279,7 +275,12 @@
         // --- 5. NOTIFICATION LOGIC ---
         async function sendEmail(contact, subject, message) {
             try {
-                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_name: contact.name, to_email: contact.email, subject, message: message.replace(/\n/g, '<br>') });
+                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+                    to_name: contact.name,
+                    to_email: contact.email,
+                    subject,
+                    message // Pass HTML message directly
+                });
                 console.log(`Email sent to ${contact.email}`);
             } catch (error) { console.error(`Failed to send email to ${contact.email}:`, error); }
         }
@@ -288,29 +289,67 @@
             const t = translations[currentLanguage];
             const list = itemsToNotify || affectedFactoryList;
 
-            if (list.length === 0 || registeredContacts.length === 0) {
+            if (list.length === 0) {
                 if (isManual) alert(t.status.noAffected);
                 return;
             }
-
-            const factoryListText = list.map(item => `- ${item.factoryName} (${t.disasterTypes[item.disaster.typeKey]}까지 ${item.distance.toFixed(1)}km)`).join('\n');
-            const subject = t.notificationTitle;
-            const emailBody = t.notificationBody(factoryListText);
-            const kakaoBody = t.kakaoMessage(factoryListText);
-
-            for (const contact of registeredContacts) { await sendEmail(contact, subject, emailBody); }
-            
-            if (typeof Kakao !== 'undefined' && Kakao.isInitialized() && Kakao.Link) {
-                Kakao.Link.sendDefault({
-                    objectType: 'text', text: kakaoBody,
-                    link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
-                    buttons: [{ title: '대시보드 바로가기', link: { mobileWebUrl: window.location.href, webUrl: window.location.href } }],
-                });
-            } else {
-                console.error("Kakao SDK is not available or initialized. Cannot send message.");
+            if (registeredContacts.length === 0 && isManual) {
+                alert("등록된 연락처가 없습니다. 알림 대상 관리에서 연락처를 추가해주세요.");
+                return;
             }
 
-            if (isManual) alert("알림이 발송되었습니다. (카카오톡은 공유창이 열립니다)");
+            const subject = t.notificationTitle;
+
+            // Email Table Styles
+            const tableStyle = "style='width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 14px;'";
+            const thStyle = "style='background-color: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; font-weight: 600;'";
+            const tdStyle = "style='padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6;'";
+            const linkStyle = "style='color: #007bff; text-decoration: none;'";
+
+            const tableRows = list.map(item => `
+                <tr>
+                    <td ${tdStyle}>${item.factoryName}</td>
+                    <td ${tdStyle}>${t.disasterTypes[item.disaster.typeKey]}</td>
+                    <td ${tdStyle}>${item.disaster.severity}</td>
+                    <td ${tdStyle}>${new Date(item.disaster.time).toLocaleString(currentLanguage === 'ko' ? 'ko-KR' : 'en-US')}</td>
+                    <td ${tdStyle}>${item.distance.toFixed(1)} km</td>
+                </tr>
+            `).join('');
+
+            const introText = currentLanguage === 'ko' ? '다음 공장들이 재난 위험에 근접했습니다:' : 'The following factories are in close proximity to a disaster:';
+            const viewDashboardText = currentLanguage === 'ko' ? '자세한 내용은 대시보드에서 확인하세요:' : 'For more details, please visit the dashboard:';
+
+            const emailHtml = `
+                <div style="font-family: Arial, sans-serif; color: #333;">
+                    <p>${introText}</p>
+                    <table ${tableStyle}>
+                        <thead>
+                            <tr>
+                                <th ${thStyle}>${currentLanguage === 'ko' ? '공장명' : 'Factory'}</th>
+                                <th ${thStyle}>${currentLanguage === 'ko' ? '재난 유형' : 'Disaster'}</th>
+                                <th ${thStyle}>${currentLanguage === 'ko' ? '강도' : 'Severity'}</th>
+                                <th ${thStyle}>${currentLanguage === 'ko' ? '발생 시각' : 'Time'}</th>
+                                <th ${thStyle}>${currentLanguage === 'ko' ? '거리' : 'Distance'}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                        </tbody>
+                    </table>
+                    <p style="margin-top: 24px;">
+                        ${viewDashboardText}<br>
+                        <a href="https://isiromina.github.io/YDRS/" ${linkStyle}>https://isiromina.github.io/YDRS/</a>
+                    </p>
+                </div>
+            `;
+
+            for (const contact of registeredContacts) {
+                await sendEmail(contact, subject, emailHtml);
+            }
+
+            if (isManual) {
+                alert("등록된 모든 연락처로 이메일 알림이 발송되었습니다.");
+            }
         }
         
         async function handleAutomaticNotifications() {
@@ -491,6 +530,36 @@
                     modalContent.textContent = err.message;
                 }
             });
+
+            document.getElementById('share-kakao-btn').addEventListener('click', () => {
+                // Check if Kakao object and Link module are available and initialized
+                if (typeof Kakao === 'undefined' || !Kakao.isInitialized() || !Kakao.Link) {
+                    console.error("Kakao SDK is not properly initialized or the Link module is unavailable.");
+                    // Provide specific feedback for local development environments
+                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') {
+                        alert("카카오톡 공유 기능은 등록된 도메인에서만 동작합니다. 로컬 환경에서는 사용할 수 없습니다.");
+                    } else {
+                        alert("카카오톡 SDK 연동에 실패했습니다. 잠시 후 다시 시도해주세요.");
+                    }
+                    return;
+                }
+
+                const t = translations[currentLanguage];
+                if (affectedFactoryList.length === 0) {
+                    alert(t.status.noAffected);
+                    return;
+                }
+
+                const factoryListText = affectedFactoryList.map(item => `- ${item.factoryName} (${t.disasterTypes[item.disaster.typeKey]}까지 ${item.distance.toFixed(1)}km)`).join('\n');
+                const kakaoBody = t.kakaoMessage(factoryListText);
+                
+                Kakao.Link.sendDefault({
+                    objectType: 'text',
+                    text: kakaoBody,
+                    link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
+                    buttons: [{ title: '대시보드 바로가기', link: { mobileWebUrl: window.location.href, webUrl: window.location.href } }],
+                });
+            });
             
             // Modal Listeners
             const aiModal = document.getElementById('ai-modal');
@@ -514,4 +583,3 @@
     </script>
 </body>
 </html>
-
