@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>✨ AI 기반 실시간 재난 현황 대시보드</title>
+    
+    <!-- Font loading moved to <link> tags for better reliability -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     
@@ -12,7 +18,7 @@
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        /* Removed @import rule, as fonts are now loaded via <link> tag */
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); color: #333; }
         .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
@@ -54,7 +60,6 @@
         </div>
         <div style="display:flex;align-items:center;gap:1rem;">
             <button id="manage-contacts-btn" class="btn" data-lang-key="manageContactsBtn">📇</button>
-            <button id="share-kakao-btn" class="btn">📲 카카오톡 공유</button>
             <div id="lang-switcher" style="display:flex;gap:0.5rem;">
                 <button data-lang="ko" class="btn">🇰🇷 KO</button>
                 <button data-lang="en" class="btn">🇺🇸 EN</button>
@@ -81,7 +86,11 @@
                     <h2 data-lang-key="tableTitle"></h2>
                     <p class="section-subtitle" data-lang-key="tableSubtitle"></p>
                 </div>
-                <button id="manual-notify-btn" class="btn" data-lang-key="manualNotifyBtn" style="display:none;"></button>
+                <!-- Buttons moved and grouped here -->
+                <div style="display:flex;gap:0.5rem;align-items:center;">
+                    <button id="manual-notify-btn" class="btn" data-lang-key="manualNotifyBtn" style="display:none;"></button>
+                    <button id="share-kakao-btn" class="btn" style="display:none;">📲 카카오톡 공유</button>
+                </div>
             </div>
             <div style="overflow-x:auto;">
                 <table>
@@ -156,7 +165,8 @@
                 status: { loading: "로딩 중...", noDisaster: "누적된 재난 정보가 없습니다.", noAffected: "1500km 이내 위험에 처한 공장이 없습니다.", error: "오류", generate: "생성" },
                 toggleMapBtn: "🛰️ 위성 지도", toggleMapBtnStyled: "🗺️ 기본 지도",
                 manageContactsBtn: "알림 대상 관리", settingsModalTitle: "알림 대상 연락처 관리", addContactBtn: "연락처 추가",
-                manualNotifyBtn: "📢 전체 알림 발송", notificationTitle: "🚨 긴급 재난 알림",
+                manualNotifyBtn: "📧 이메일 전송", // Changed text
+                notificationTitle: "🚨 긴급 재난 알림",
                 kakaoMessage: (text) => `[긴급 재난 알림]\n\n다음 공장들이 재난 위험에 근접했습니다:\n\n${text}\n\n자세한 내용은 대시보드에서 확인하세요.`
             },
             en: {
@@ -169,7 +179,8 @@
                 status: { loading: "Loading...", noDisaster: "No cumulative disaster data.", noAffected: "No factories are at risk within 1500km.", error: "Error", generate: "Generate" },
                 toggleMapBtn: "🛰️ Satellite Map", toggleMapBtnStyled: "🗺️ Styled Map",
                 manageContactsBtn: "Manage Contacts", settingsModalTitle: "Manage Notification Contacts", addContactBtn: "Add Contact",
-                manualNotifyBtn: "📢 Send Notifications", notificationTitle: "🚨 URGENT DISASTER ALERT",
+                manualNotifyBtn: "📧 Send Email", // Changed text
+                notificationTitle: "🚨 URGENT DISASTER ALERT",
                 kakaoMessage: (text) => `[Urgent Disaster Alert]\n\nThe following factories are at risk:\n\n${text}\n\nCheck the dashboard for details.`
             }
         };
@@ -401,6 +412,11 @@
                 const marker = L.circleMarker(disaster.location, { radius: 8, color: "#fff", weight: 2, fillColor: ({typhoon: '#E53935', earthquake: '#1E88E5', flood: '#43A047', volcano: '#FF9800'})[disaster.typeKey], fillOpacity: 0.9 }).addTo(disasterLayerGroup);
                 marker.bindTooltip(`<strong>${disaster.eventName}</strong><br>${t.disasterTypes[disaster.typeKey]} | ${disaster.severity}<br>${new Date(disaster.time).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US')}`);
             });
+            
+            const showButtons = affectedFactoryList.length > 0;
+            document.getElementById('manual-notify-btn').style.display = showButtons ? 'inline-block' : 'none';
+            document.getElementById('share-kakao-btn').style.display = showButtons ? 'inline-block' : 'none';
+
             if (affectedFactoryList.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="7">${cumulativeDisasters.length === 0 ? t.status.noDisaster : t.status.noAffected}</td></tr>`;
             } else {
@@ -416,7 +432,6 @@
                     </tr>`;
                 }).join('');
             }
-            document.getElementById('manual-notify-btn').style.display = affectedFactoryList.length > 0 ? 'inline-block' : 'none';
         }
 
         async function fetchAndUpdateData() {
@@ -538,10 +553,9 @@
             });
 
             document.getElementById('share-kakao-btn').addEventListener('click', () => {
-                // Check if Kakao object and Link module are available and initialized
-                if (typeof Kakao === 'undefined' || !Kakao.isInitialized() || !Kakao.Link) {
-                    console.error("Kakao SDK is not properly initialized or the Link module is unavailable.");
-                    // Provide specific feedback for local development environments
+                // UPDATED: Check for Kakao.Share instead of Kakao.Link
+                if (typeof Kakao === 'undefined' || !Kakao.isInitialized() || !Kakao.Share) {
+                    console.error("Kakao SDK is not properly initialized or the Share module is unavailable.");
                     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') {
                         alert("카카오톡 공유 기능은 등록된 도메인에서만 동작합니다. 로컬 환경에서는 사용할 수 없습니다.");
                     } else {
@@ -559,7 +573,8 @@
                 const factoryListText = affectedFactoryList.map(item => `- ${item.factoryName} (${t.disasterTypes[item.disaster.typeKey]}까지 ${item.distance.toFixed(1)}km)`).join('\n');
                 const kakaoBody = t.kakaoMessage(factoryListText);
                 
-                Kakao.Link.sendDefault({
+                // UPDATED: Use Kakao.Share.sendDefault
+                Kakao.Share.sendDefault({
                     objectType: 'text',
                     text: kakaoBody,
                     link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
@@ -589,5 +604,4 @@
     </script>
 </body>
 </html>
-로컬이 아니라 실제 도메인에서 테스트했는데도 문제가 발생해... ㅜㅜ 그리고 다른 기능들은 다 제대로 되는데 폰트가 적용이 안되고 있는거 같아. 확인해줄 수 있을까?
 
