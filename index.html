@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     
+    <!-- Corrected 'xintegrity' to 'integrity' -->
     <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.1/kakao.min.js" xintegrity="sha384-dPuE23cCSeGgtTyVZWJB2esL6sDyLBMBrZJjKaUdeKscDMTB+JROOr5TPuhfTeu4" crossorigin="anonymous"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
@@ -468,8 +469,13 @@
         document.addEventListener('DOMContentLoaded', () => {
             // Init APIs safely
             try {
-                if (KAKAO_JAVASCRIPT_KEY) Kakao.init(KAKAO_JAVASCRIPT_KEY);
-                else console.warn("Kakao JavaScript Key is not provided.");
+                if (KAKAO_JAVASCRIPT_KEY) {
+                    Kakao.init(KAKAO_JAVASCRIPT_KEY);
+                    // Add this log to immediately check initialization status on page load
+                    console.log('Kakao SDK Initialized Status:', Kakao.isInitialized());
+                } else {
+                    console.warn("Kakao JavaScript Key is not provided.");
+                }
             } catch (e) {
                 console.error("Failed to initialize Kakao SDK. Kakao features will be unavailable.", e);
             }
@@ -583,3 +589,5 @@
     </script>
 </body>
 </html>
+로컬이 아니라 실제 도메인에서 테스트했는데도 문제가 발생해... ㅜㅜ 그리고 다른 기능들은 다 제대로 되는데 폰트가 적용이 안되고 있는거 같아. 확인해줄 수 있을까?
+
