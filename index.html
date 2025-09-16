@@ -5,31 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>✨ AI 기반 실시간 재난 현황 대시보드</title>
     
-    <!-- Font loading moved to <link> tags for better reliability -->
+    <!-- Google Fonts - Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     
+    <!-- Leaflet CSS and JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     
-    <!-- Corrected 'xintegrity' to 'integrity' -->
-    <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.1/kakao.min.js" xintegrity="sha384-dPuE23cCSeGgtTyVZWJB2esL6sDyLBMBrZJjKaUdeKscDMTB+JROOr5TPuhfTeu4" crossorigin="anonymous"></script>
+    <!-- Marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- EmailJS SDK -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
     <style>
-        /* Removed @import rule, as fonts are now loaded via <link> tag */
+        /* 기본 스타일 및 레이아웃 */
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); color: #333; }
         .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
-        header { margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem; border-bottom: 1px solid rgba(0, 0, 0, 0.1); padding-bottom: 2rem; }
+        header { 
+            margin-bottom: 2rem; 
+            display: flex; 
+            justify-content: space-between; /* 양쪽 끝으로 요소 분리 */
+            align-items: center; 
+            flex-wrap: wrap; 
+            gap: 1.5rem; 
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1); 
+            padding-bottom: 2rem; 
+        }
         header h1 { font-size: 2.25rem; font-weight: 700; color: #4a5568; }
         header p { margin-top: 0.5rem; color: #4a5568; }
+
+        /* 버튼 스타일 */
         .btn { background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); border: none; color: white; padding: 0.6rem 1.2rem; border-radius: 25px; font-size: 0.875rem; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: all 0.3s ease; white-space: nowrap; }
         .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
         .btn-danger { background: linear-gradient(135deg,#e53935 0%,#b71c1c 100%); }
         .ai-action-btn { background: #3b82f6; border: none; color: white; padding: 0.4rem 0.8rem; border-radius: 5px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
         .ai-action-btn:hover { background: #2563eb; transform: translateY(-1px); }
+
+        /* 섹션 및 콘텐츠 스타일 */
         main section { margin-bottom: 2rem; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 15px; padding: 2rem; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); }
         .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem; }
         main h2 { font-size: 1.75rem; font-weight: 600; color: #2d3748; margin-bottom: 0.5rem; }
@@ -38,6 +54,8 @@
         table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
         th, td { border: 1px solid #e2e8f0; padding: 0.85rem 1rem; text-align: center; vertical-align: middle; }
         th { background: #f7fafc; font-weight: 600; }
+
+        /* 모달 스타일 */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1001; }
         .modal-overlay.flex { display: flex; }
         .modal-content { background: #ffffff; border-radius: 15px; width: 100%; max-width: 42rem; max-height: 90vh; display: flex; flex-direction: column; }
@@ -45,7 +63,7 @@
         .modal-close-btn { background: none; border: none; font-size: 1.75rem; cursor: pointer; }
         .modal-body { padding: 1.5rem; overflow-y: auto; }
         #settings-form { display: flex; flex-direction: column; gap: 1rem; }
-        #settings-form input { padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; }
+        #settings-form input, #settings-form select { padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; }
         #contacts-list { list-style: none; padding: 0; margin-top: 1.5rem; }
         #contacts-list li { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid #e2e8f0; }
         .delete-contact-btn { background: #ef4444; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; }
@@ -58,12 +76,9 @@
             <h1 data-lang-key="mainTitle"></h1>
             <p data-lang-key="mainSubtitle"></p>
         </div>
-        <div style="display:flex;align-items:center;gap:1rem;">
-            <button id="manage-contacts-btn" class="btn" data-lang-key="manageContactsBtn">📇</button>
-            <div id="lang-switcher" style="display:flex;gap:0.5rem;">
-                <button data-lang="ko" class="btn">🇰🇷 KO</button>
-                <button data-lang="en" class="btn">🇺🇸 EN</button>
-            </div>
+        <div id="lang-switcher" style="display:flex;gap:0.5rem; align-self: flex-start; margin-top: 0;">
+            <button data-lang="ko" class="btn">🇰🇷 KO</button>
+            <button data-lang="en" class="btn">🇺🇸 EN</button>
         </div>
     </header>
     <main>
@@ -86,10 +101,9 @@
                     <h2 data-lang-key="tableTitle"></h2>
                     <p class="section-subtitle" data-lang-key="tableSubtitle"></p>
                 </div>
-                <!-- Buttons moved and grouped here -->
                 <div style="display:flex;gap:0.5rem;align-items:center;">
+                    <button id="manage-contacts-btn" class="btn" data-lang-key="manageContactsBtn">📇</button>
                     <button id="manual-notify-btn" class="btn" data-lang-key="manualNotifyBtn" style="display:none;"></button>
-                    <button id="share-kakao-btn" class="btn" style="display:none;">📲 카카오톡 공유</button>
                 </div>
             </div>
             <div style="overflow-x:auto;">
@@ -120,9 +134,9 @@
         </header>
         <div class="modal-body">
             <form id="settings-form">
-                <input type="text" id="contact-name" placeholder="Name" required>
-                <input type="email" id="contact-email" placeholder="Email Address" required>
-                <input type="tel" id="contact-phone" placeholder="Phone Number (e.g., 01012345678)" required>
+                <input type="text" id="contact-name" placeholder="이름" required>
+                <input type="email" id="contact-email" placeholder="이메일 주소" required>
+                <select id="contact-factory-select"></select>
                 <button type="submit" class="btn" data-lang-key="addContactBtn"></button>
             </form>
             <ul id="contacts-list"></ul>
@@ -133,27 +147,31 @@
     <script>
         // --- 1. CONFIGURATION & CONSTANTS ---
         // =======================================================
-        // ✨ If running locally, please input your own API keys.
+        // ✨ 이 부분은 실행 환경에서 자동으로 채워집니다.
         // =======================================================
-        const GEMINI_API_KEY ="AIzaSyBKMews6-cJMPDXMdbLBUc1TajGvwh4oKM"; // This is automatically provided in the execution environment.
-        const EMAILJS_PUBLIC_KEY = "7piqAcEBAyDl2ac9-"; // EmailJS Public Key
-        const EMAILJS_SERVICE_ID = "service_7fp4k9e"; // EmailJS Service ID
-        const EMAILJS_TEMPLATE_ID = "template_8xzncvb"; // EmailJS Template ID
-        const KAKAO_JAVASCRIPT_KEY = "ffcb37ffd3124eeba4311dbbb777c6c5"; // Kakao Developers JavaScript Key
+        const GEMINI_API_KEY = ""; // 이 키는 실행 환경에서 자동으로 제공됩니다.
+        
+        // EmailJS 키 (이전 버전에서 사용하던 키를 다시 사용)
+        const EMAILJS_PUBLIC_KEY = "7piqAcEBAyDl2ac9-"; 
+        const EMAILJS_SERVICE_ID = "service_7fp4k9e";
+        const EMAILJS_TEMPLATE_ID = "template_8xzncvb";
 
+        // 재난 위험에 노출될 수 있는 공장 위치 데이터
+        // NOTE: 이메일 알림을 위해 각 공장에 'country' 정보를 추가했습니다.
         const factories = {
-            "R&D Center": {lat: 37.4028781, lng: 127.1080751}, "CHEONGBUK": {lat: 37.0432081, lng: 126.9488081},
-            "JANGAN": {lat: 37.0617091, lng: 126.8516081}, "JINWI": {lat: 37.1135291, lng: 127.0646151}, "CHEONGJU": {lat: 36.6326841, lng: 127.3074351},
-            "GYEONGJU": {lat: 35.8710891, lng: 129.0705691}, "JUNDONG": {lat: 36.6421561, lng: 127.2760631}, "BEIJING": {lat: 40.3584486, lng: 116.8131146},
-            "WEIHAI": {lat: 37.3701011, lng: 122.2203763}, "RONGCHENG": {lat: 37.1447568, lng: 122.4544656}, "HEZE": {lat: 35.2431127, lng: 115.5612442},
-            "LELING": {lat: 37.7332868, lng: 117.1757121}, "VIETNAM": {lat: 20.9714435, lng: 105.9899378}, "SERBIA LESKOVAC": {lat: 43.0142517, lng: 21.9588845},
-            "SERBIA RACA": {lat: 44.2471316, lng: 20.9899691}, "SERBIA NIS": {lat: 43.3113091, lng: 21.8318674}, "SLOVAKIA LEDNICKE": {lat: 49.0720488, lng: 18.2989662},
-            "SLOVAKIA SOBOTA": {lat: 48.3778118, lng: 20.0136771}, "MEXICO TORREON": {lat: 25.4720401, lng: -103.3606821}, "MEXICO DURANGO": {lat: 25.8341065, lng: -103.8415915},
-            "MEXICO LERDO": {lat: 25.5634585, lng: -103.5213405}, "MEXICO MONTERRAY": {lat: 25.7585854, lng: -99.9957003}, "TUNISIA": {lat: 35.6939288, lng: 10.1124129},
-            "MORROCO": {lat: 33.8612668, lng: -5.5831826}, "ALBANIA": {lat: 40.7146584, lng: 19.5492341}, "RUS": {lat: 59.3765474, lng: 28.2204991},
-            "POLAND": {lat: 51.0365921, lng: 16.8978391}, "CZECH": {lat: 49.7794629, lng: 18.4498011}, "UK": {lat: 52.4682403, lng: -1.2716024}
+            "R&D Center": {lat: 37.4028781, lng: 127.1080751, country: 'KOREA'}, "CHEONGBUK": {lat: 37.0432081, lng: 126.9488081, country: 'KOREA'},
+            "JANGAN": {lat: 37.0617091, lng: 126.8516081, country: 'KOREA'}, "JINWI": {lat: 37.1135291, lng: 127.0646151, country: 'KOREA'}, "CHEONGJU": {lat: 36.6326841, lng: 127.3074351, country: 'KOREA'},
+            "GYEONGJU": {lat: 35.8710891, lng: 129.0705691, country: 'KOREA'}, "JUNDONG": {lat: 36.6421561, lng: 127.2760631, country: 'KOREA'}, "BEIJING": {lat: 40.3584486, lng: 116.8131146, country: 'CHINA'},
+            "WEIHAI": {lat: 37.3701011, lng: 122.2203763, country: 'CHINA'}, "RONGCHENG": {lat: 37.1447568, lng: 122.4544656, country: 'CHINA'}, "HEZE": {lat: 35.2431127, lng: 115.5612442, country: 'CHINA'},
+            "LELING": {lat: 37.7332868, lng: 117.1757121, country: 'CHINA'}, "VIETNAM": {lat: 20.9714435, lng: 105.9899378, country: 'VIETNAM'}, "SERBIA LESKOVAC": {lat: 43.0142517, lng: 21.9588845, country: 'SERBIA'},
+            "SERBIA RACA": {lat: 44.2471316, lng: 20.9899691, country: 'SERBIA'}, "SERBIA NIS": {lat: 43.3113091, lng: 21.8318674, country: 'SERBIA'}, "SLOVAKIA LEDNICKE": {lat: 49.0720488, lng: 18.2989662, country: 'SLOVAKIA'},
+            "SLOVAKIA SOBOTA": {lat: 48.3778118, lng: 20.0136771, country: 'SLOVAKIA'}, "MEXICO TORREON": {lat: 25.4720401, lng: -103.3606821, country: 'MEXICO'}, "MEXICO DURANGO": {lat: 25.8341065, lng: -103.8415915, country: 'MEXICO'},
+            "MEXICO LERDO": {lat: 25.5634585, lng: -103.5213405, country: 'MEXICO'}, "MEXICO MONTERRAY": {lat: 25.7585854, lng: -99.9957003, country: 'MEXICO'}, "TUNISIA": {lat: 35.6939288, lng: 10.1124129, country: 'TUNISIA'},
+            "MORROCO": {lat: 33.8612668, lng: -5.5831826, country: 'MOROCCO'}, "ALBANIA": {lat: 40.7146584, lng: 19.5492341, country: 'ALBANIA'}, "RUS": {lat: 59.3765474, lng: 28.2204991, country: 'RUSSIA'},
+            "POLAND": {lat: 51.0365921, lng: 16.8978391, country: 'POLAND'}, "CZECH": {lat: 49.7794629, lng: 18.4498011, country: 'CZECHIA'}, "UK": {lat: 52.4682403, lng: -1.2716024, country: 'UK'}
         };
 
+        // 다국어 지원을 위한 번역 데이터
         const translations = {
             ko: {
                 mainTitle: "✨ AI 기반 실시간 재난 현황 대시보드", mainSubtitle: "GDACS 데이터를 기반으로 재난 정보를 시각화하고, Gemini AI를 통해 맞춤형 대응 방안을 생성합니다.",
@@ -161,13 +179,13 @@
                 tableTitle: "위험 근접 공장 목록", tableSubtitle: "감지된 재난으로부터 1500km 이내에 위치한 공장 목록입니다.",
                 tableHeaders: ["공장명", "재난 유형", "거리 (km)", "발생 시각", "강도", "경고 수준", "✨ AI 대응 방안"],
                 alertLevels: { safe: "안전", caution: "주의", warning: "경계", severe: "심각" },
-                disasterTypes: { typhoon: "태풍", earthquake: "지진", flood: "홍수", volcano: "화산" },
+                // 산불(wildfire) 추가
+                disasterTypes: { typhoon: "태풍", earthquake: "지진", flood: "홍수", volcano: "화산", wildfire: "산불" },
                 status: { loading: "로딩 중...", noDisaster: "누적된 재난 정보가 없습니다.", noAffected: "1500km 이내 위험에 처한 공장이 없습니다.", error: "오류", generate: "생성" },
                 toggleMapBtn: "🛰️ 위성 지도", toggleMapBtnStyled: "🗺️ 기본 지도",
                 manageContactsBtn: "알림 대상 관리", settingsModalTitle: "알림 대상 연락처 관리", addContactBtn: "연락처 추가",
-                manualNotifyBtn: "📧 이메일 전송", // Changed text
+                manualNotifyBtn: "📧 이메일 전송",
                 notificationTitle: "🚨 긴급 재난 알림",
-                kakaoMessage: (text) => `[긴급 재난 알림]\n\n다음 공장들이 재난 위험에 근접했습니다:\n\n${text}\n\n자세한 내용은 대시보드에서 확인하세요.`
             },
             en: {
                 mainTitle: "✨ AI-Powered Real-Time Disaster Dashboard", mainSubtitle: "Visualize disaster data from GDACS and generate custom action plans with Gemini AI.",
@@ -175,13 +193,13 @@
                 tableTitle: "At-Risk Factory List", tableSubtitle: "Factories located within 1500km of a detected disaster.",
                 tableHeaders: ["Factory", "Disaster", "Distance (km)", "Time", "Severity", "Alert Level", "✨ AI Action Plan"],
                 alertLevels: { safe: "Safe", caution: "Caution", warning: "Warning", severe: "Severe" },
-                disasterTypes: { typhoon: "Typhoon", earthquake: "Earthquake", flood: "Flood", volcano: "Volcano" },
+                // Wildfire added
+                disasterTypes: { typhoon: "Typhoon", earthquake: "Earthquake", flood: "Flood", volcano: "Volcano", wildfire: "Wildfire" },
                 status: { loading: "Loading...", noDisaster: "No cumulative disaster data.", noAffected: "No factories are at risk within 1500km.", error: "Error", generate: "Generate" },
                 toggleMapBtn: "🛰️ Satellite Map", toggleMapBtnStyled: "🗺️ Styled Map",
                 manageContactsBtn: "Manage Contacts", settingsModalTitle: "Manage Notification Contacts", addContactBtn: "Add Contact",
-                manualNotifyBtn: "📧 Send Email", // Changed text
+                manualNotifyBtn: "📧 Send Email",
                 notificationTitle: "🚨 URGENT DISASTER ALERT",
-                kakaoMessage: (text) => `[Urgent Disaster Alert]\n\nThe following factories are at risk:\n\n${text}\n\nCheck the dashboard for details.`
             }
         };
 
@@ -195,10 +213,17 @@
         let notificationLog = {};
         
         // --- 3. UTILITY & HELPER FUNCTIONS ---
+        // 하버사인 공식으로 두 지점 간 거리(km)를 계산
         const toRad = (v) => v * Math.PI / 180;
         const haversineDistance = (c1, c2) => { const R = 6371; const dLat = toRad(c2.lat - c1.lat); const dLon = toRad(c2.lng - c1.lng); const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(c1.lat)) * Math.cos(toRad(c2.lat)) * Math.sin(dLon / 2) ** 2; return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); };
-        const getAlertLevelKey = (d) => { if (d > 300) return 'safe'; if (d > 200) return 'caution'; if (d > 100) return 'warning'; return 'severe'; };
+        
+        // 거리에 따른 경고 수준 결정
+        const getAlertLevelKey = (d) => { if (d > 200) return 'safe'; if (d > 100) return 'caution'; if (d > 50) return 'warning'; return 'severe'; };
+        
+        // XML 데이터 파싱
         const getTagText = (item, tag) => item.querySelector(tag)?.textContent.trim() || null;
+        
+        // 로컬 스토리지 관련 유틸리티
         const getStoredDisasters = () => JSON.parse(localStorage.getItem('cumulativeDisasters')) || [];
         const setStoredDisasters = (d) => localStorage.setItem('cumulativeDisasters', JSON.stringify(d));
         const saveContacts = () => localStorage.setItem('disasterContacts', JSON.stringify(registeredContacts));
@@ -207,52 +232,81 @@
         const saveNotificationLog = (log) => localStorage.setItem('notificationLog', JSON.stringify(log));
 
         // --- 4. CORE DATA & API LOGIC ---
+        // GDACS RSS 피드에서 재난 데이터 가져오기
         async function fetchDisasters() {
             const PROXY_URL = "https://api.allorigins.win/raw?url=";
             const RSS_URL = "https://www.gdacs.org/xml/rss_24h.xml";
-            try {
-                const response = await fetch(`${PROXY_URL}${encodeURIComponent(RSS_URL)}`, { signal: AbortSignal.timeout(15000) });
-                if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
-                const xmlText = await response.text();
-                const xml = new DOMParser().parseFromString(xmlText, "application/xml");
-                if (xml.querySelector("parsererror")) throw new Error("XML parsing error.");
-                return Array.from(xml.querySelectorAll("item")).map(item => {
-                    const typeRaw = getTagText(item, "gdacs\\:eventtype, eventtype")?.toLowerCase() || '';
-                    const mapping = { 'tc': 'typhoon', 'eq': 'earthquake', 'fl': 'flood', 'vo': 'volcano' };
-                    const typeKey = Object.keys(mapping).find(k => typeRaw.includes(k));
-                    if (!typeKey) return null;
-                    const eventName = getTagText(item, "gdacs\\:eventname, eventname") || "Unnamed";
-                    const fromDate = getTagText(item, "gdacs\\:fromdate, fromdate") || new Date().toISOString();
-                    const lat = parseFloat(getTagText(item, "geo\\:lat, lat"));
-                    const lon = parseFloat(getTagText(item, "geo\\:long, long"));
-                    if (isNaN(lat) || isNaN(lon)) return null;
-                    const severityTag = item.querySelector("gdacs\\:severity, severity");
-                    let severity = "-";
-                    if (severityTag) {
-                        const unit = severityTag.getAttribute("unit");
-                        const valueAttr = severityTag.getAttribute("value") || "";
-                        const numericValue = parseFloat(valueAttr.replace(/[^0-9.-]/g, ''));
-
-                        if (!isNaN(numericValue)) {
-                            if (unit === "M") {
-                                severity = `Mag ${numericValue.toFixed(1)}`;
-                            } else if (unit === "km/h" || typeKey === 'typhoon') {
-                                severity = `Wind ${numericValue.toFixed(2)} km/h`;
-                            } else {
-                                severity = `${unit || 'Val'}: ${numericValue.toFixed(2)}`;
-                            }
-                        } else {
-                            severity = valueAttr;
+            const maxRetries = 3;
+            let retries = 0;
+            
+            while (retries < maxRetries) {
+                try {
+                    const response = await fetch(`${PROXY_URL}${encodeURIComponent(RSS_URL)}`, { signal: AbortSignal.timeout(15000) });
+                    if (!response.ok) {
+                        if (response.status === 429) { // Too many requests
+                            console.warn(`Retry ${retries + 1}/${maxRetries}: Too many requests. Waiting for 2 seconds...`);
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                            retries++;
+                            continue;
                         }
+                        throw new Error(`Network response was not ok: ${response.statusText}`);
                     }
-                    return { id: `${eventName}-${fromDate}`, eventName, typeKey: mapping[typeKey], location: { lat, lng: lon }, severity, time: fromDate };
-                }).filter(Boolean);
-            } catch (e) {
-                console.error("Failed to fetch disaster data:", e);
-                throw e; // Propagate error to be handled in UI
-            }
-        }
+                    const xmlText = await response.text();
+                    const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+                    if (xml.querySelector("parsererror")) throw new Error("XML parsing error.");
+                    
+                    return Array.from(xml.querySelectorAll("item")).map(item => {
+                        const typeRaw = item.querySelector("gdacs\\:eventtype, eventtype")?.textContent.toLowerCase() || '';
+                        const mapping = { 'tc': 'typhoon', 'eq': 'earthquake', 'fl': 'flood', 'vo': 'volcano', 'wf': 'wildfire' };
+                        const typeKey = Object.keys(mapping).find(k => typeRaw.includes(k));
+                        if (!typeKey) return null;
 
+                        let eventName = item.querySelector("gdacs\\:eventname, eventname")?.textContent || "";
+                        const fromDate = item.querySelector("gdacs\\:fromdate, fromdate")?.textContent || new Date().toISOString();
+                        const lat = parseFloat(item.querySelector("geo\\:lat, lat")?.textContent);
+                        const lon = parseFloat(item.querySelector("geo\\:long, long")?.textContent);
+                        if (isNaN(lat) || isNaN(lon)) return null;
+
+                        if (typeKey === 'earthquake' && (eventName === "" || eventName.includes("Unnamed"))) {
+                            const countryName = item.querySelector("gdacs\\:countryname, countryname")?.textContent;
+                            eventName = countryName ? `${countryName} Earthquake` : "Unspecified Location Earthquake";
+                        }
+
+                        const severityTag = item.querySelector("gdacs\\:severity, severity");
+                        let severity = "-";
+                        if (severityTag) {
+                            const unit = severityTag.getAttribute("unit");
+                            const valueAttr = severityTag.getAttribute("value") || "";
+                            const numericValue = parseFloat(valueAttr.replace(/[^0-9.-]/g, ''));
+
+                            if (typeKey === 'flood' && numericValue === 0) {
+                                severity = "-";
+                            } else if (!isNaN(numericValue)) {
+                                if (unit === "M") {
+                                    severity = `Mag ${numericValue.toFixed(1)}`;
+                                } else if (unit === "km/h" || typeKey === 'typhoon') {
+                                    severity = `Wind ${numericValue.toFixed(2)} km/h`;
+                                } else {
+                                    severity = `${unit || 'Val'}: ${numericValue.toFixed(2)}`;
+                                }
+                            } else {
+                                severity = valueAttr;
+                            }
+                        }
+                        return { id: `${eventName}-${fromDate}`, eventName, typeKey: mapping[typeKey], location: { lat, lng: lon }, severity, time: fromDate };
+                    }).filter(Boolean);
+
+                } catch (e) {
+                    retries++;
+                    console.error(`Attempt ${retries} failed: ${e.message}. Retrying...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+                }
+            }
+            
+            throw new Error(`Failed to fetch data after ${maxRetries} attempts. Please check your network connection.`);
+        }
+        
+        // Gemini AI를 사용하여 재난 대응 방안 생성
         async function generateActionPlan(disaster, factory) {
             const t = translations[currentLanguage];
             const prompt = `You are a crisis management expert. For a ${disaster.typeKey} named '${disaster.eventName}' (${disaster.severity}) that is ${factory.distance.toFixed(1)} km away from the '${factory.factoryName}' factory, provide a concise, bulleted list of immediate action items in ${currentLanguage === 'ko' ? 'Korean' : 'English'}.`;
@@ -270,12 +324,14 @@
             return result.candidates?.[0]?.content?.parts?.[0]?.text || "No response from AI.";
         }
 
+        // 재난 데이터와 공장 위치를 비교하여 위험 공장 목록 생성
         function processDisasterData() {
             affectedFactoryList = [];
             if (cumulativeDisasters.length === 0) return;
             cumulativeDisasters.forEach((disaster, disasterIndex) => {
                 Object.entries(factories).forEach(([factoryName, factoryLocation]) => {
                     const distance = haversineDistance(disaster.location, factoryLocation);
+                    // NOTE: 위험 근접 거리 임계값을 1500km로 복원했습니다.
                     if (distance <= 1500) {
                         affectedFactoryList.push({ factoryName, disaster, disasterIndex, distance });
                     }
@@ -285,85 +341,107 @@
         }
 
         // --- 5. NOTIFICATION LOGIC ---
+        // EmailJS를 사용하여 이메일 전송
         async function sendEmail(contact, subject, message) {
             try {
                 await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
                     to_name: contact.name,
                     to_email: contact.email,
-                    subject,
-                    message // Pass HTML message directly
-                });
-                console.log(`Email sent to ${contact.email}`);
-            } catch (error) { console.error(`Failed to send email to ${contact.email}:`, error); }
+                    subject: subject,
+                    message: message
+                }, EMAILJS_PUBLIC_KEY);
+                console.log(`Email sent to ${contact.email} successfully.`);
+            } catch (error) {
+                console.error(`Failed to send email to ${contact.email}:`, error);
+            }
         }
 
-        async function sendNotifications(isManual = false, itemsToNotify = null) {
+        // 알림 전송 (수동 또는 자동)
+        async function sendNotifications(isManual = false) {
             const t = translations[currentLanguage];
-            const list = itemsToNotify || affectedFactoryList;
+            const subject = t.notificationTitle;
+            
+            // 모든 위험 공장 데이터를 국가별로 그룹화
+            const affectedFactoriesByCountry = affectedFactoryList.reduce((acc, item) => {
+                const country = factories[item.factoryName]?.country;
+                if (country) {
+                    if (!acc[country]) {
+                        acc[country] = [];
+                    }
+                    acc[country].push(item);
+                }
+                return acc;
+            }, {});
 
-            if (list.length === 0) {
+            if (Object.keys(affectedFactoriesByCountry).length === 0) {
                 if (isManual) alert(t.status.noAffected);
                 return;
             }
-            if (registeredContacts.length === 0 && isManual) {
-                alert("등록된 연락처가 없습니다. 알림 대상 관리에서 연락처를 추가해주세요.");
-                return;
-            }
 
-            const subject = t.notificationTitle;
-
-            // Email Table Styles
-            const tableStyle = "style='width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 14px;'";
-            const thStyle = "style='background-color: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; font-weight: 600;'";
-            const tdStyle = "style='padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6;'";
-            const linkStyle = "style='color: #007bff; text-decoration: none;'";
-
-            const tableRows = list.map(item => `
-                <tr>
-                    <td ${tdStyle}>${item.factoryName}</td>
-                    <td ${tdStyle}>${t.disasterTypes[item.disaster.typeKey]}</td>
-                    <td ${tdStyle}>${item.disaster.severity}</td>
-                    <td ${tdStyle}>${new Date(item.disaster.time).toLocaleString(currentLanguage === 'ko' ? 'ko-KR' : 'en-US')}</td>
-                    <td ${tdStyle}>${item.distance.toFixed(1)} km</td>
-                </tr>
-            `).join('');
-
-            const introText = currentLanguage === 'ko' ? '다음 공장들이 재난 위험에 근접했습니다:' : 'The following factories are in close proximity to a disaster:';
-            const viewDashboardText = currentLanguage === 'ko' ? '자세한 내용은 대시보드에서 확인하세요:' : 'For more details, please visit the dashboard:';
-
-            const emailHtml = `
-                <div style="font-family: Arial, sans-serif; color: #333;">
-                    <p>${introText}</p>
-                    <table ${tableStyle}>
-                        <thead>
-                            <tr>
-                                <th ${thStyle}>${currentLanguage === 'ko' ? '공장명' : 'Factory'}</th>
-                                <th ${thStyle}>${currentLanguage === 'ko' ? '재난 유형' : 'Disaster'}</th>
-                                <th ${thStyle}>${currentLanguage === 'ko' ? '강도' : 'Severity'}</th>
-                                <th ${thStyle}>${currentLanguage === 'ko' ? '발생 시각' : 'Time'}</th>
-                                <th ${thStyle}>${currentLanguage === 'ko' ? '거리' : 'Distance'}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${tableRows}
-                        </tbody>
-                    </table>
-                    <p style="margin-top: 24px;">
-                        ${viewDashboardText}<br>
-                        <a href="https://isiromina.github.io/YDRS/" ${linkStyle}>https://isiromina.github.io/YDRS/</a>
-                    </p>
-                </div>
-            `;
-
+            // 등록된 연락처를 순회하며 각 연락처에 맞는 메일을 생성 및 발송
             for (const contact of registeredContacts) {
+                const contactCountry = factories[contact.factory]?.country;
+                if (!contactCountry) continue;
+
+                const nearbyFactoriesInCountry = affectedFactoriesByCountry[contactCountry];
+                
+                // 해당 국가의 위험 공장 정보가 없는 경우 건너뜁니다.
+                if (!nearbyFactoriesInCountry || nearbyFactoriesInCountry.length === 0) {
+                    continue;
+                }
+                
+                // 이메일 HTML 콘텐츠 생성
+                const tableStyle = "style='width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 14px;'";
+                const thStyle = "style='background-color: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; font-weight: 600;'";
+                const tdStyle = "style='padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6;'";
+                const linkStyle = "style='color: #007bff; text-decoration: none;'";
+
+                const tableRows = nearbyFactoriesInCountry.map(subItem => `
+                    <tr>
+                        <td ${tdStyle}>${subItem.factoryName}</td>
+                        <td ${tdStyle}>${t.disasterTypes[subItem.disaster.typeKey]}</td>
+                        <td ${tdStyle}>${subItem.disaster.severity}</td>
+                        <td ${tdStyle}>${new Date(subItem.disaster.time).toLocaleString(currentLanguage === 'ko' ? 'ko-KR' : 'en-US')}</td>
+                        <td ${tdStyle}>${subItem.distance.toFixed(1)} km</td>
+                    </tr>
+                `).join('');
+
+                const introText = currentLanguage === 'ko' ? `[${contact.factory}] 공장과 인근 지역에 재난 위험이 감지되었습니다. 다음은 ${contactCountry} 내의 위험 근접 공장 목록입니다:` : `A disaster alert has been issued for [${contact.factory}] and nearby areas. Below is a list of at-risk factories in ${contactCountry}:`;
+                const viewDashboardText = currentLanguage === 'ko' ? '자세한 내용은 대시보드에서 확인하세요:' : 'For more details, please visit the dashboard:';
+
+                const emailHtml = `
+                    <div style="font-family: Arial, sans-serif; color: #333;">
+                        <p>${introText}</p>
+                        <table ${tableStyle}>
+                            <thead>
+                                <tr>
+                                    <th ${thStyle}>${currentLanguage === 'ko' ? '공장명' : 'Factory'}</th>
+                                    <th ${thStyle}>${currentLanguage === 'ko' ? '재난 유형' : 'Disaster'}</th>
+                                    <th ${thStyle}>${currentLanguage === 'ko' ? '강도' : 'Severity'}</th>
+                                    <th ${thStyle}>${currentLanguage === 'ko' ? '발생 시각' : 'Time'}</th>
+                                    <th ${thStyle}>${currentLanguage === 'ko' ? '거리' : 'Distance'}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRows}
+                            </tbody>
+                        </table>
+                        <p style="margin-top: 24px;">
+                            ${viewDashboardText}<br>
+                            <a href="https://isiromina.github.io/YDRS/" ${linkStyle}>https://isiromina.github.io/YDRS/</a>
+                        </p>
+                    </div>
+                `;
+                
                 await sendEmail(contact, subject, emailHtml);
             }
 
             if (isManual) {
-                alert("등록된 모든 연락처로 이메일 알림이 발송되었습니다.");
+                alert(`알림이 위험 근접 공장 관련 연락처로 전송되었습니다.`);
             }
         }
         
+        // 자동 알림 로직
         async function handleAutomaticNotifications() {
             const now = Date.now();
             const oneHour = 60 * 60 * 1000;
@@ -384,7 +462,7 @@
                 const itemsToNotify = affectedFactoryList.filter(item => disasterIdsToNotify.has(item.disaster.id));
                 
                 if (itemsToNotify.length > 0) {
-                    await sendNotifications(false, itemsToNotify);
+                    await sendNotifications(false);
                     disasterIdsToNotify.forEach(id => {
                         notificationLog[id] = now;
                     });
@@ -393,8 +471,8 @@
             }
         }
 
-
         // --- 6. UI RENDERING & DOM MANIPULATION ---
+        // UI 텍스트 업데이트
         function updateStaticUI(lang) {
             const t = translations[lang];
             document.documentElement.lang = lang;
@@ -402,20 +480,46 @@
             document.querySelectorAll('#lang-switcher button').forEach(btn => btn.style.background = btn.dataset.lang === lang ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '');
             document.getElementById('table-header-row').innerHTML = t.tableHeaders.map(h => `<th>${h}</th>`).join('');
             document.getElementById('toggle-map-btn').textContent = (currentMapTypeId === 'styled_map') ? t.toggleMapBtn : t.toggleMapBtnStyled;
+            // contact placeholder를 한국어로 업데이트
+            document.getElementById('contact-name').placeholder = lang === 'ko' ? '이름' : 'Name';
+            document.getElementById('contact-email').placeholder = lang === 'ko' ? '이메일 주소' : 'Email Address';
         }
 
+        // 동적 콘텐츠(지도 마커 및 테이블) 렌더링
         function renderContent(lang) {
             const tbody = document.getElementById('distanceTableBody');
             const t = translations[lang];
             disasterLayerGroup.clearLayers();
+            
+            // 재난 유형별 마커 색상 정의에 산불(wildfire) 추가
+            const markerColors = {
+                typhoon: '#E53935', earthquake: '#1E88E5', flood: '#43A047', volcano: '#FF9800', wildfire: '#FF4500' 
+            };
+            
+            // 태풍 경로를 위한 별도 레이어 그룹
+            const typhoonPathLayer = L.layerGroup().addTo(leafletMap);
+
             cumulativeDisasters.forEach(disaster => {
-                const marker = L.circleMarker(disaster.location, { radius: 8, color: "#fff", weight: 2, fillColor: ({typhoon: '#E53935', earthquake: '#1E88E5', flood: '#43A047', volcano: '#FF9800'})[disaster.typeKey], fillOpacity: 0.9 }).addTo(disasterLayerGroup);
+                const marker = L.circleMarker(disaster.location, { radius: 8, color: "#fff", weight: 2, fillColor: markerColors[disaster.typeKey], fillOpacity: 0.9 }).addTo(disasterLayerGroup);
                 marker.bindTooltip(`<strong>${disaster.eventName}</strong><br>${t.disasterTypes[disaster.typeKey]} | ${disaster.severity}<br>${new Date(disaster.time).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US')}`);
+            
+                // 태풍일 경우 경로를 그리는 로직 추가
+                if (disaster.typeKey === 'typhoon') {
+                    // 동일한 태풍 이벤트의 모든 위치 기록을 필터링
+                    const typhoonPath = cumulativeDisasters
+                        .filter(d => d.eventName === disaster.eventName && d.typeKey === 'typhoon')
+                        .sort((a, b) => new Date(a.time) - new Date(b.time))
+                        .map(d => [d.location.lat, d.location.lng]);
+
+                    if (typhoonPath.length > 1) {
+                        L.polyline(typhoonPath, { color: '#4a90e2', weight: 3, dashArray: '5, 10' }).addTo(typhoonPathLayer);
+                    }
+                }
             });
             
             const showButtons = affectedFactoryList.length > 0;
             document.getElementById('manual-notify-btn').style.display = showButtons ? 'inline-block' : 'none';
-            document.getElementById('share-kakao-btn').style.display = showButtons ? 'inline-block' : 'none';
+            document.getElementById('manage-contacts-btn').style.display = showButtons ? 'inline-block' : 'none';
 
             if (affectedFactoryList.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="7">${cumulativeDisasters.length === 0 ? t.status.noDisaster : t.status.noAffected}</td></tr>`;
@@ -425,8 +529,8 @@
                     const alertLevelKey = getAlertLevelKey(distance);
                     return `<tr data-disaster-index="${disasterIndex}" data-factory-name="${factoryName}" data-distance="${distance}">
                         <td>${factoryName}</td>
-                        <td>${t.disasterTypes[disaster.typeKey]}</td><td>${distance.toFixed(1)}</td>
-                        <td>${new Date(disaster.time).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US')}</td><td>${disaster.severity}</td>
+                        <td>${t.disasterTypes[item.disaster.typeKey]}</td><td>${distance.toFixed(1)}</td>
+                        <td>${new Date(item.disaster.time).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US')}</td><td>${disaster.severity}</td>
                         <td>${t.alertLevels[alertLevelKey]}</td>
                         <td><button class="ai-action-btn">${t.status.generate}</button></td>
                     </tr>`;
@@ -434,6 +538,7 @@
             }
         }
 
+        // GDACS 데이터 가져오기 및 UI 업데이트
         async function fetchAndUpdateData() {
             try {
                 const newDisasters = await fetchDisasters();
@@ -454,6 +559,7 @@
         }
 
         // --- 7. EVENT LISTENERS & INITIALIZATION ---
+        // 언어 변경
         function setLanguage(lang) {
             currentLanguage = lang;
             localStorage.setItem('disasterDashboardLanguage', lang);
@@ -461,6 +567,7 @@
             renderContent(lang);
         }
 
+        // 지도 타입 변경
         function toggleMapType() {
             if (leafletMap.hasLayer(styledMapLayer)) {
                 leafletMap.removeLayer(styledMapLayer);
@@ -474,53 +581,39 @@
             updateStaticUI(currentLanguage);
         }
 
+        // 연락처 목록 렌더링
         function renderContactsList() {
             document.getElementById('contacts-list').innerHTML = registeredContacts.map((contact, index) =>
-                `<li><div><strong>${contact.name}</strong><br><small>${contact.email} / ${contact.phone}</small></div>
+                `<li><div><strong>${contact.name}</strong><br><small>${contact.email} (${contact.factory})</small></div>
                  <button class="delete-contact-btn" data-index="${index}">&times;</button></li>`
             ).join('');
         }
 
+        // 페이지 로드 시 초기화
         document.addEventListener('DOMContentLoaded', () => {
-            // Init APIs safely
-            try {
-                if (KAKAO_JAVASCRIPT_KEY) {
-                    Kakao.init(KAKAO_JAVASCRIPT_KEY);
-                    // Add this log to immediately check initialization status on page load
-                    console.log('Kakao SDK Initialized Status:', Kakao.isInitialized());
-                } else {
-                    console.warn("Kakao JavaScript Key is not provided.");
-                }
-            } catch (e) {
-                console.error("Failed to initialize Kakao SDK. Kakao features will be unavailable.", e);
-            }
-            try {
-                if (EMAILJS_PUBLIC_KEY) emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
-                else console.warn("EmailJS Public Key is not provided.");
-            } catch (e) {
-                console.error("Failed to initialize EmailJS SDK. Email features will be unavailable.", e);
-            }
-
-            // Init Map
+            // 지도 초기화
             leafletMap = L.map('map', { worldCopyJump: true }).setView([30, 120], 3);
             styledMapLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(leafletMap);
             satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '&copy; Esri' });
             disasterLayerGroup = L.layerGroup().addTo(leafletMap);
+            
+            // 공장 마커 추가
             Object.entries(factories).forEach(([name, loc]) => {
                 L.circleMarker(loc, { radius: 4, color: '#000', weight: 1, fillColor: "#FFC107", fillOpacity: 0.9 }).addTo(leafletMap).bindTooltip(name);
             });
 
-            // Load initial data
+            // 데이터 로드 및 렌더링
             registeredContacts = loadContacts();
             notificationLog = loadNotificationLog();
             cumulativeDisasters = getStoredDisasters();
             processDisasterData();
-            setLanguage(currentLanguage); // This now renders the cached data immediately
+            setLanguage(currentLanguage);
             
-            fetchAndUpdateData(); // Fetch new data in the background
-            setInterval(fetchAndUpdateData, 300000); // 5 minutes
+            // 주기적으로 데이터 업데이트
+            fetchAndUpdateData();
+            setInterval(fetchAndUpdateData, 300000); // 5분마다 업데이트
 
-            // Event Listeners
+            // 이벤트 리스너
             document.getElementById('lang-switcher').addEventListener('click', e => e.target.dataset.lang && setLanguage(e.target.dataset.lang));
             document.getElementById('toggle-map-btn').addEventListener('click', toggleMapType);
             document.getElementById('clear-history-btn').addEventListener('click', () => {
@@ -532,65 +625,46 @@
                 renderContent(currentLanguage);
             });
             document.getElementById('distanceTableBody').addEventListener('click', async (e) => {
-                if (!e.target.classList.contains('ai-action-btn')) return;
                 const row = e.target.closest('tr');
-                const disaster = cumulativeDisasters[parseInt(row.dataset.disasterIndex)];
-                const factory = { factoryName: row.dataset.factoryName, distance: parseFloat(row.dataset.distance) };
-                const modal = document.getElementById('ai-modal');
-                const modalTitle = document.getElementById('ai-modal-title');
-                const modalContent = document.getElementById('ai-modal-content');
-                modalTitle.textContent = "AI 분석 중...";
-                modalContent.textContent = "";
-                modal.classList.add('flex');
-                try {
-                    const plan = await generateActionPlan(disaster, factory);
-                    modalTitle.textContent = `AI 대응 방안: ${factory.factoryName}`;
-                    modalContent.textContent = plan;
-                } catch (err) {
-                    modalTitle.textContent = "오류 발생";
-                    modalContent.textContent = err.message;
-                }
-            });
-
-            document.getElementById('share-kakao-btn').addEventListener('click', () => {
-                // UPDATED: Check for Kakao.Share instead of Kakao.Link
-                if (typeof Kakao === 'undefined' || !Kakao.isInitialized() || !Kakao.Share) {
-                    console.error("Kakao SDK is not properly initialized or the Share module is unavailable.");
-                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') {
-                        alert("카카오톡 공유 기능은 등록된 도메인에서만 동작합니다. 로컬 환경에서는 사용할 수 없습니다.");
-                    } else {
-                        alert("카카오톡 SDK 연동에 실패했습니다. 잠시 후 다시 시도해주세요.");
-                    }
-                    return;
-                }
-
-                const t = translations[currentLanguage];
-                if (affectedFactoryList.length === 0) {
-                    alert(t.status.noAffected);
-                    return;
-                }
-
-                const factoryListText = affectedFactoryList.map(item => `- ${item.factoryName} (${t.disasterTypes[item.disaster.typeKey]}까지 ${item.distance.toFixed(1)}km)`).join('\n');
-                const kakaoBody = t.kakaoMessage(factoryListText);
+                if (!row) return;
                 
-                // UPDATED: Use Kakao.Share.sendDefault
-                Kakao.Share.sendDefault({
-                    objectType: 'text',
-                    text: kakaoBody,
-                    link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
-                    buttons: [{ title: '대시보드 바로가기', link: { mobileWebUrl: window.location.href, webUrl: window.location.href } }],
-                });
+                if (e.target.classList.contains('ai-action-btn')) {
+                    const disaster = cumulativeDisasters[parseInt(row.dataset.disasterIndex)];
+                    const factory = { factoryName: row.dataset.factoryName, distance: parseFloat(row.dataset.distance) };
+                    const modal = document.getElementById('ai-modal');
+                    const modalTitle = document.getElementById('ai-modal-title');
+                    const modalContent = document.getElementById('ai-modal-content');
+                    modalTitle.textContent = "AI 분석 중...";
+                    modalContent.textContent = "";
+                    modal.classList.add('flex');
+                    try {
+                        const plan = await generateActionPlan(disaster, factory);
+                        modalTitle.textContent = `AI 대응 방안: ${factory.factoryName}`;
+                        modalContent.innerHTML = marked.parse(plan);
+                    } catch (err) {
+                        modalTitle.textContent = "오류 발생";
+                        modalContent.textContent = err.message;
+                    }
+                }
             });
-            
-            // Modal Listeners
+
+            // 모달 관련 이벤트 리스너
             const aiModal = document.getElementById('ai-modal');
             const settingsModal = document.getElementById('settings-modal');
             document.getElementById('ai-modal-close').addEventListener('click', () => aiModal.classList.remove('flex'));
-            document.getElementById('manage-contacts-btn').addEventListener('click', () => { renderContactsList(); settingsModal.classList.add('flex'); });
+            document.getElementById('manage-contacts-btn').addEventListener('click', () => { 
+                renderContactsList(); 
+                populateFactorySelect();
+                settingsModal.classList.add('flex'); 
+            });
             document.getElementById('settings-modal-close').addEventListener('click', () => settingsModal.classList.remove('flex'));
             document.getElementById('settings-form').addEventListener('submit', (e) => {
                 e.preventDefault();
-                registeredContacts.push({ name: e.target.elements['contact-name'].value, email: e.target.elements['contact-email'].value, phone: e.target.elements['contact-phone'].value });
+                registeredContacts.push({ 
+                    name: e.target.elements['contact-name'].value, 
+                    email: e.target.elements['contact-email'].value,
+                    factory: e.target.elements['contact-factory-select'].value
+                });
                 saveContacts(); renderContactsList(); e.target.reset();
             });
             document.getElementById('contacts-list').addEventListener('click', e => {
@@ -599,9 +673,21 @@
                     saveContacts(); renderContactsList();
                 }
             });
-            document.getElementById('manual-notify-btn').addEventListener('click', () => sendNotifications(true, affectedFactoryList));
+            document.getElementById('manual-notify-btn').addEventListener('click', () => sendNotifications(true));
         });
+
+        // 공장 드롭다운 메뉴 채우기
+        function populateFactorySelect() {
+            const select = document.getElementById('contact-factory-select');
+            select.innerHTML = '<option value="">-- 공장 선택 --</option>';
+            const factoryNames = Object.keys(factories);
+            factoryNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+        }
     </script>
 </body>
 </html>
-
