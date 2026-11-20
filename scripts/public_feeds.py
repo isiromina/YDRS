@@ -45,12 +45,19 @@ def disasters():
     if root.tag != "rss" or root.find("channel") is None:
         raise ValueError("Invalid GDACS RSS")
     rows = []
+    missing_location = 0
     for item in root.findall("channel/item"):
-        fields = {el.tag.rsplit("}", 1)[-1]: (el.text or "").strip() for el in item}
+        fields = {el.tag.rsplit("}", 1)[-1]: (el.text or "").strip() for el in item.iter()}
         kind, eid = fields["eventtype"], fields["eventid"]
         if not re.fullmatch("[A-Z]{2}", kind) or not re.fullmatch("[0-9]+", eid):
             raise ValueError("Invalid event identity")
-        lat, lon = float(fields["lat"]), float(fields["long"])
+        if fields.get("lat") and fields.get("long"):
+            lat, lon = float(fields["lat"]), float(fields["long"])
+        elif len(fields.get("point", "").split()) == 2:
+            lat, lon = map(float, fields["point"].split())
+        else:
+            missing_location += 1
+            continue
         if not (-90 <= lat <= 90 and -180 <= lon <= 180):
             raise ValueError("Invalid coordinates")
         row = dict(event_type=kind, event_id=eid, latitude=lat, longitude=lon,
@@ -59,7 +66,9 @@ def disasters():
         if level in {"green", "orange", "red"}:
             row["alert_level"] = level
         rows.append(row)
-    return dict(schema="ydrs.gdacs.v1", source="GDACS", source_url="https://www.gdacs.org/", events=rows)
+    if missing_location and not rows:
+        raise ValueError("No geolocated RSS events")
+    return dict(missing_location=missing_location, schema="ydrs.gdacs.v1", source="GDACS", source_url="https://www.gdacs.org/", events=rows)
 
 
 def accumulation(cycle, lead, directory):
