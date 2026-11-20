@@ -36,7 +36,7 @@ jobs:
           if kma:
               endpoint = 'https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min_o'
               tm = datetime.now(timezone(timedelta(hours=9))) - timedelta(minutes=15)
-              params = dict(stn='400', tm2=tm.strftime('%Y%m%d%H%M'), disp='0', help='0')
+              params = dict(stn='0', tm2=tm.strftime('%Y%m%d%H%M'), disp='1', help='0')
               if key:
                   params['authKey'] = key
           else:
@@ -79,7 +79,16 @@ jobs:
                           break
                   else:
                       print('KMA response category: unspecified')
-              rows = [line for line in text.splitlines() if re.match(r'^\s*\d{12}\s+400\s+',line)]
+              rows = []
+              for line in text.splitlines():
+                  cols = [part.strip() for part in line.strip().rstrip('=').split(',')]
+                  if len(cols) >= 8 and re.fullmatch(r'\d{12}',cols[0]) and cols[1].isdigit():
+                      try:
+                          rain = float(cols[5])
+                      except ValueError:
+                          continue
+                      if math.isfinite(rain) and rain >= 0:
+                          rows.append(cols[1])
               valid = status == 200 and bool(rows)
               print('AWS station data rows:',len(rows))
           else:
