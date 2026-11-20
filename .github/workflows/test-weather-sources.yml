@@ -1,0 +1,85 @@
+name: KMA AWS and WeatherAPI connection test
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/test-weather-sources.yml']
+permissions: {}
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    strategy:
+      fail-fast: false
+      matrix:
+        source: [KMA, WeatherAPI]
+    steps:
+      - name: Check one public location
+        env:
+          SOURCE: ${{ matrix.source }}
+          KEY: ${{ matrix.source == 'KMA' && secrets.KMA_API_KEY || '' }}
+          WEATHER_KEY: ${{ matrix.source == 'WeatherAPI' && secrets.WEATHERAPI_KEY || '' }}
+        run: |
+          python3 - <<'PY'
+          import json, math, os, re
+          from datetime import datetime, timedelta, timezone
+          from urllib.parse import urlencode
+          from urllib.request import build_opener, HTTPRedirectHandler, Request
+          from urllib.error import HTTPError
+
+          class NoRedirect(HTTPRedirectHandler):
+              def redirect_request(self, *args):
+                  return None
+
+          kma = os.environ['SOURCE'] == 'KMA'
+          key = os.environ['KEY' if kma else 'WEATHER_KEY']
+          if kma:
+              endpoint = 'https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min_o'
+              tm = datetime.now(timezone(timedelta(hours=9))) - timedelta(minutes=15)
+              params = dict(stn='400', tm2=tm.strftime('%Y%m%d%H%M'), disp='0', help='0')
+              if key:
+                  params['authKey'] = key
+          else:
+              endpoint = 'https://api.weatherapi.com/v1/forecast.json'
+              params = dict(q='London', days='1', alerts='no', aqi='no')
+              if key:
+                  params['key'] = key
+          print('Credential configured:', bool(key), flush=True)
+          req = Request(endpoint+'?'+urlencode(params), headers={'User-Agent':'YDRS-weather-check/1.0'})
+          try:
+              try:
+                  res = build_opener(NoRedirect()).open(req, timeout=35)
+              except HTTPError as exc:
+                  res = exc
+              with res:
+                  status = res.status
+                  body = res.read(512001)
+          except Exception as exc:
+              print('Connection error:', type(exc).__name__)
+              raise SystemExit(1)
+          print('HTTP status:', status)
+          if len(body)>512000:
+              raise SystemExit('Response exceeded test limit')
+          valid = False
+          if kma:
+              text = body.decode('utf-8', errors='replace')
+              rows = [line for line in text.splitlines() if re.match(r'^\s*\d{12}\s+400\s+',line)]
+              valid = status == 200 and bool(rows)
+              print('AWS station data rows:',len(rows))
+          else:
+              try:
+                  obj = json.loads(body)
+                  if 'error' in obj:
+                      code = obj['error'].get('code')
+                      if isinstance(code,int):
+                          print('Provider error code:', code)
+                  hours = obj.get('forecast',{}).get('forecastday',[])
+                  vals = [h.get('precip_mm') for d in hours for h in d.get('hour',[])]
+                  valid = status == 200 and bool(vals) and all(isinstance(v,(int,float)) and math.isfinite(v) and v>=0 for v in vals)
+                  print('Hourly precipitation records:',len(vals))
+              except (ValueError,TypeError,AttributeError):
+                  pass
+          print('Data validated:',valid)
+          if not valid:
+              raise SystemExit(1)
+          PY
