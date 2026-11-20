@@ -32,7 +32,7 @@ jobs:
                   return None
 
           kma = os.environ['SOURCE'] == 'KMA'
-          key = os.environ['KEY' if kma else 'WEATHER_KEY']
+          key = os.environ['KEY' if kma else 'WEATHER_KEY'].strip()
           if kma:
               endpoint = 'https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min_o'
               tm = datetime.now(timezone(timedelta(hours=9))) - timedelta(minutes=15)
@@ -63,6 +63,22 @@ jobs:
           valid = False
           if kma:
               text = body.decode('utf-8', errors='replace')
+              if status != 200:
+                  for encoding in ('utf-8','cp949'):
+                      msg = body.decode(encoding, errors='replace').lower()
+                      reasons = {
+                          'usage approval': ('활용신청', '활용 신청', '이용신청', '이용 신청', 'not subscribed', 'subscription required'),
+                          'key rejected': ('invalid api key', 'invalid authentication key', '유효하지 않은 인증키', '등록되지 않은 인증키'),
+                          'network restriction': ('ip address is not allowed', '허용되지 않은 ip', '등록되지 않은 ip'),
+                          'quota': ('quota exceeded', '호출 횟수 초과'),
+                          'access denied': ('access denied', 'forbidden', '권한이 없습니다'),
+                      }
+                      labels = [label for label, words in reasons.items() if any(word in msg for word in words)]
+                      if labels:
+                          print('KMA response category:', ', '.join(labels))
+                          break
+                  else:
+                      print('KMA response category: unspecified')
               rows = [line for line in text.splitlines() if re.match(r'^\s*\d{12}\s+400\s+',line)]
               valid = status == 200 and bool(rows)
               print('AWS station data rows:',len(rows))
