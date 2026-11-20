@@ -1,0 +1,67 @@
+name: KMA observations and WeatherAPI forecasts
+on:
+  schedule:
+    - cron: '3 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/station-weather.yml', 'scripts/station_weather.py']
+
+permissions: {}
+concurrency:
+  group: station-weather-publisher
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: write
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        feed: [kma-aws, weatherapi]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts
+      - name: Collect precipitation
+        env:
+          KMA_KEY: ${{ matrix.feed == 'kma-aws' && secrets.KMA_API_KEY || '' }}
+          WEATHER_KEY: ${{ matrix.feed == 'weatherapi' && secrets.WEATHERAPI_KEY || '' }}
+        run: python3 scripts/station_weather.py "${{ matrix.feed }}"
+      - name: Publish validated snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FEED: ${{ matrix.feed }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="repos/$GITHUB_REPOSITORY/contents/feeds/$FEED.json"
+          if ! gh api "$endpoint?ref=main" > "$RUNNER_TEMP/current.json" 2>"$RUNNER_TEMP/status"; then
+            grep -q 'HTTP 404' "$RUNNER_TEMP/status" || exit 1
+            echo '{}' > "$RUNNER_TEMP/current.json"
+          fi
+          python3 - <<'PY'
+          import base64, json, os
+          from pathlib import Path
+          feed = os.environ["FEED"]
+          tmp = Path(os.environ["RUNNER_TEMP"])
+          current = json.loads((tmp / "current.json").read_text())
+          data = Path(f"output/{feed}.json").read_bytes()
+          if len(data) > 950000:
+              raise SystemExit("Snapshot exceeds pilot size limit")
+          args = dict(message=f"Refresh public {feed} feed", branch="main",
+                      content=base64.b64encode(data).decode())
+          if current:
+              old = json.loads(base64.b64decode(current["content"]))
+              new = json.loads(data)
+              if old["collected_at"] >= new["collected_at"]:
+                  raise SystemExit("Refusing to replace newer snapshot")
+              args["sha"] = current["sha"]
+          (tmp / "request.json").write_text(json.dumps(args))
+          PY
+          gh api --silent -X PUT "$endpoint" --input "$RUNNER_TEMP/request.json"
