@@ -31,6 +31,7 @@ jobs:
       - name: Collect precipitation
         env:
           KMA_KEY: ${{ matrix.feed == 'kma-aws' && secrets.KMA_API_KEY || '' }}
+          WEATHER_POINTS: ${{ matrix.feed == 'weatherapi' && secrets.WEATHER_POINTS_JSON || '' }}
           WEATHER_KEY: ${{ matrix.feed == 'weatherapi' && secrets.WEATHERAPI_KEY || '' }}
         run: python3 scripts/station_weather.py "${{ matrix.feed }}"
       - name: Publish validated snapshot
