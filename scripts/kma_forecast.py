@@ -53,7 +53,14 @@ def retrieve(base, xy):
         with build_opener(NoRedirect()).open(Request(endpoint+'?'+urlencode(args)), timeout=35) as resp:
             payload = json.loads(resp.read(1500000))
     except HTTPError as exc:
-        raise SystemExit(f'KMA forecast HTTP {exc.code}') from None
+        # Report only known public error labels. The response may echo the request key.
+        body = exc.read(8192)
+        message = ' '.join(body.decode(enc, errors='ignore').lower() for enc in ('utf-8', 'cp949'))
+        labels = [('subscription required', ('활용신청을 하지', '활용신청이 필요', '활용 신청이 필요', '신청하지 않은', 'not subscribed', '신청하지 않았')),
+                  ('invalid key', ('invalid authentication key', '유효하지 않은 인증키')),
+                  ('quota exceeded', ('quota exceeded', '호출 횟수를 초과'))]
+        reason = next((label for label, hints in labels if any(h in message for h in hints)), 'unspecified')
+        raise SystemExit(f'KMA forecast HTTP {exc.code} ({reason})') from None
     except (URLError, TimeoutError, ValueError):
         raise SystemExit('KMA forecast unavailable or invalid response') from None
     response = payload.get('response', {})
