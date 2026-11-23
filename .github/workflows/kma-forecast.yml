@@ -1,0 +1,22 @@
+name: Domestic KMA rainfall forecasts
+on:
+  schedule:
+    - cron: '25 2,5,8,11,14,17,20,23 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['scripts/kma_forecast.py', '.github/workflows/kma-forecast.yml']
+permissions: {}
+concurrency:
+  group: domestic-kma-forecast
+  cancel-in-progress: false
+jobs:
+  forecast:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/collect-and-publish-feed.yml
+    with:
+      feed: kma-forecast
+    secrets:
+      kma_key: ${{ secrets.KMA_API_KEY }}
+      points: ${{ secrets.WEATHER_POINTS_JSON }}
