@@ -232,11 +232,31 @@ def forecasts():
     return result
 
 
+def retain_hourly_estimates(snapshot):
+    issued = datetime.fromisoformat(snapshot['collected_at']).timestamp()
+    cutoff = issued - 73 * 3600
+    path = Path('feeds/weatherapi.json')
+    previous = json.loads(path.read_text()) if path.exists() else {}
+    history = {}
+    for row in snapshot['records']:
+        code = row['point_id']
+        if code not in history:
+            prior = previous.get('hourly_estimates', {}).get(code, {})
+            history[code] = {start: pair for start, pair in prior.items()
+                             if float(start) > cutoff}
+        start = int(datetime.fromisoformat(row['valid_at']).timestamp())
+        if start >= issued:
+            history[code][str(start)] = [row['precip_mm'], issued]
+    snapshot['hourly_estimates'] = history
+
+
 feed = sys.argv[1]
 snapshot = {'kma-aws': observations, 'weatherapi': forecasts}[feed]()
 if not snapshot['records']:
     raise SystemExit('Empty snapshot')
 snapshot['collected_at'] = datetime.now(UTC).isoformat()
+if feed == 'weatherapi':
+    retain_hourly_estimates(snapshot)
 output = Path('output')
 output.mkdir(exist_ok=True)
 (output / (feed + '.json')).write_text(json.dumps(snapshot, separators=(',', ':'), allow_nan=False))
