@@ -125,7 +125,7 @@ def gauge_rows(stamp):
     return rows
 
 
-def public_observations():
+def public_observations(official_stations):
     data = fetch('https://www.weather.go.kr/cgi-bin/aws/nph-aws_txt_min', {}, limit=6000000)
     html = data.decode('cp949', errors='replace')
     match = re.search(r'\d{4}\.\d{2}\.\d{2}\.\d{2}:\d{2}', html)
@@ -141,11 +141,7 @@ def public_observations():
         raise SystemExit('Unrecognized KMA rainfall columns')
     weather_header = ['기온', '풍향1', '풍속1(m/s)', '풍향10', '풍속10(m/s)', '습도', '해면기압']
     has_weather = any(row[8:15] == weather_header for row in table.rows)
-    # Public ASOS metadata from https://minwon.kma.go.kr/main/obvStn.do
-    with Path(__file__).with_name('kma_asos_coordinates.csv').open() as stream:
-        stations = {sid: (float(lat), float(lon)) for sid, lat, lon in csv.reader(stream)}
-    # Official Seongnam AWS site metadata (KMA station 572), used when the catalog is unavailable.
-    stations['572'] = (37.42093, 127.12476)
+    stations = dict(official_stations)
     stations.update(station_catalog('AWS', when.strftime('%Y%m%d%H%M')))
     rows = []
     for fields in table.rows:
@@ -204,13 +200,17 @@ def nearby_stations(rows, catalog, points):
 
 
 def observations():
+    # Active station rows from https://minwon.kma.go.kr/main/obvStn.do (surface and AWS).
+    with Path(__file__).with_name('kma_station_catalog.csv').open(encoding='utf-8') as stream:
+        metadata = {sid: (float(lat), float(lon), name) for sid, lat, lon, name in csv.reader(stream)}
+    official_stations = {sid: entry[:2] for sid, entry in metadata.items()}
     try:
-        when, rows, stations = public_observations()
+        when, rows, stations = public_observations(official_stations)
     except SystemExit as exc:
         print('Public station table unavailable:', str(exc))
         when = (datetime.now(KST) - timedelta(minutes=15)).replace(second=0, microsecond=0)
         rows = []
-        stations = {}
+        stations = dict(official_stations)
     try:
         gauges = gauge_rows(when.strftime('%Y%m%d%H%M'))
     except SystemExit as exc:
@@ -221,6 +221,12 @@ def observations():
         existing = {row['station_id'] for row in rows}
         rows.extend(row for row in gauges if row['station_id'] not in existing)
     print('Observations with station coordinates:', sum('station_lat' in row for row in rows))
+    for row in rows:
+        entry = metadata.get(row['station_id'])
+        if entry:
+            row['station_name'] = entry[2]
+            row.setdefault('station_lat', entry[0])
+            row.setdefault('station_lon', entry[1])
     stations.update({r['station_id']: (r['station_lat'], r['station_lon'])
                      for r in rows if 'station_lat' in r and 'station_lon' in r})
     points = json.loads(os.environ.get('WEATHER_POINTS') or '{}')
