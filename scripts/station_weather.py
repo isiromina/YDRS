@@ -7,6 +7,7 @@ import re
 import sys
 import time
 from datetime import datetime, timedelta, timezone
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -21,13 +22,14 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
-def fetch(endpoint, params):
-    request = Request(endpoint + '?' + urlencode(params), headers={'User-Agent': 'YDRS/1.0'})
+def fetch(endpoint, params, limit=512000):
+    url = endpoint + '?' + urlencode(params) if params else endpoint
+    request = Request(url, headers={'User-Agent': 'YDRS/1.0'})
     for attempt in range(3):
         try:
             with build_opener(NoRedirect()).open(request, timeout=40) as response:
-                data = response.read(512001)
-                if len(data) > 512000:
+                data = response.read(limit + 1)
+                if len(data) > limit:
                     raise SystemExit('Response exceeds size limit')
                 return data
         except HTTPError as exc:
@@ -56,9 +58,54 @@ def rainfall(value):
     return result if math.isfinite(result) and result >= 0 else None
 
 
-def observations():
-    when = (datetime.now(KST) - timedelta(minutes=15)).replace(second=0, microsecond=0)
-    stamp = when.strftime('%Y%m%d%H%M')
+class ObservationTable(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.rows = []
+        self.cells = []
+        self.value = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'tr':
+            self.cells = []
+        elif tag in ('td', 'th'):
+            self.value = []
+
+    def handle_data(self, data):
+        if self.value is not None:
+            self.value.append(data)
+
+    def handle_endtag(self, tag):
+        if tag in ('td', 'th') and self.value is not None:
+            self.cells.append(''.join(self.value).strip())
+            self.value = None
+        if tag == 'tr' and self.cells:
+            self.rows.append(self.cells)
+            self.cells = []
+
+
+def station_catalog(network, stamp):
+    stations = {}
+    try:
+        catalog = fetch('https://apihub.kma.go.kr/api/typ01/url/stn_inf.php',
+                        dict(inf=network, tm=stamp, help=0, authKey=os.environ['KMA_KEY']))
+    except SystemExit as exc:
+        print(network, 'catalog unavailable:', str(exc))
+    else:
+        for line in catalog.decode('cp949', errors='replace').splitlines():
+            parts = line.split()
+            if len(parts) < 3 or not parts[0].isdigit():
+                continue
+            try:
+                lon, lat = map(float, parts[1:3])
+            except ValueError:
+                continue
+            if 124 <= lon <= 132 and 32 <= lat <= 40:
+                stations[parts[0]] = (lat, lon)
+    return stations
+
+
+def gauge_rows(stamp):
     data = fetch('https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min_o',
                  dict(tm2=stamp, stn=0, disp=1, help=0, authKey=os.environ['KMA_KEY']))
     rows = []
@@ -71,27 +118,65 @@ def observations():
             rows.append(dict(station_id=fields[1], rain_60m_mm=hour,
                              rain_15m_mm=rainfall(fields[4]), rain_12h_mm=rainfall(fields[6]),
                              rain_day_mm=rainfall(fields[7])))
-    stations = {}
-    try:
-        catalog = fetch('https://apihub.kma.go.kr/api/typ01/url/stn_inf.php',
-                        dict(inf='RN', tm=stamp, help=0, authKey=os.environ['KMA_KEY']))
-    except SystemExit as exc:
-        print('Gauge catalog unavailable:', str(exc))
-    else:
-        for line in catalog.decode('cp949', errors='replace').splitlines():
-            parts = line.split()
-            if len(parts) < 3 or not parts[0].isdigit():
-                continue
-            try:
-                lon, lat = map(float, parts[1:3])
-            except ValueError:
-                continue
-            if -180 <= lon <= 180 and -90 <= lat <= 90:
-                stations[parts[0]] = (lat, lon)
+    stations = station_catalog('RN', stamp)
     for row in rows:
         if row['station_id'] in stations:
             row['station_lat'], row['station_lon'] = stations[row['station_id']]
-    print('Observations with gauge coordinates:', sum('station_lat' in row for row in rows))
+    return rows
+
+
+def public_observations():
+    data = fetch('https://www.weather.go.kr/cgi-bin/aws/nph-aws_txt_min', {}, limit=6000000)
+    html = data.decode('cp949', errors='replace')
+    match = re.search(r'\d{4}\.\d{2}\.\d{2}\.\d{2}:\d{2}', html)
+    if not match:
+        raise SystemExit('Missing KMA table observation time')
+    when = datetime.strptime(match.group(), '%Y.%m.%d.%H:%M').replace(tzinfo=KST)
+    if not timedelta(0) <= datetime.now(KST) - when <= timedelta(hours=1):
+        raise SystemExit('Stale KMA table')
+    table = ObservationTable()
+    table.feed(html)
+    header = ['강수15', '강수60', '강수3H', '강수6H', '강수12H', '일강수']
+    if not any(row[2:8] == header for row in table.rows):
+        raise SystemExit('Unrecognized KMA rainfall columns')
+    # Public ASOS metadata from https://minwon.kma.go.kr/main/obvStn.do
+    with Path(__file__).with_name('kma_asos_coordinates.csv').open() as stream:
+        stations = {sid: (float(lat), float(lon)) for sid, lat, lon in csv.reader(stream)}
+    stations.update(station_catalog('AWS', when.strftime('%Y%m%d%H%M')))
+    rows = []
+    for fields in table.rows:
+        if len(fields) < 10 or fields[0] not in stations:
+            continue
+        hour = rainfall(fields[5])
+        if hour is None:
+            continue
+        lat, lon = stations[fields[0]]
+        rows.append(dict(station_id=fields[0], station_lat=lat, station_lon=lon,
+                         rain_15m_mm=rainfall(fields[4]), rain_60m_mm=hour,
+                         rain_3h_mm=rainfall(fields[6]), rain_6h_mm=rainfall(fields[7]),
+                         rain_12h_mm=rainfall(fields[8]), rain_day_mm=rainfall(fields[9])))
+    if not rows:
+        raise SystemExit('No geolocated public observations')
+    return when, rows
+
+
+def observations():
+    try:
+        when, rows = public_observations()
+    except SystemExit as exc:
+        print('Public station table unavailable:', str(exc))
+        when = (datetime.now(KST) - timedelta(minutes=15)).replace(second=0, microsecond=0)
+        rows = []
+    try:
+        gauges = gauge_rows(when.strftime('%Y%m%d%H%M'))
+    except SystemExit as exc:
+        if not rows:
+            raise
+        print('Gauge observations unavailable:', str(exc))
+    else:
+        existing = {row['station_id'] for row in rows}
+        rows.extend(row for row in gauges if row['station_id'] not in existing)
+    print('Observations with station coordinates:', sum('station_lat' in row for row in rows))
     return dict(source='KMA AWS', observed_at=when.isoformat(), records=rows)
 
 
