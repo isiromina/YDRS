@@ -40,6 +40,7 @@ jobs:
         run: |
           case "$FEED" in
             kma-aws|weatherapi) python3 scripts/station_weather.py "$FEED" ;;
+            kma-forecast) python3 scripts/kma_forecast.py ;;
             disasters|weather) python3 scripts/public_feeds.py "$FEED" ;;
             *) exit 1 ;;
           esac
