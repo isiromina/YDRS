@@ -144,6 +144,8 @@ def public_observations():
     # Public ASOS metadata from https://minwon.kma.go.kr/main/obvStn.do
     with Path(__file__).with_name('kma_asos_coordinates.csv').open() as stream:
         stations = {sid: (float(lat), float(lon)) for sid, lat, lon in csv.reader(stream)}
+    # Official Seongnam AWS site metadata (KMA station 572), used when the catalog is unavailable.
+    stations['572'] = (37.42093, 127.12476)
     stations.update(station_catalog('AWS', when.strftime('%Y%m%d%H%M')))
     rows = []
     for fields in table.rows:
@@ -171,16 +173,44 @@ def public_observations():
                     rows[-1][key] = value
     if not rows:
         raise SystemExit('No geolocated public observations')
-    return when, rows
+    return when, rows, stations
+
+
+def nearby_stations(rows, catalog, points):
+    matches = {}
+    by_id = {row['station_id']: row for row in rows}
+    for code, point in points.items():
+        if (not re.fullmatch(r'P[0-9]{3,5}', code) or not isinstance(point, list)
+                or len(point) != 2 or any(type(v) not in (int, float) for v in point)
+                or not -90 <= point[0] <= 90 or not -180 <= point[1] <= 180):
+            raise SystemExit('Invalid observation point configuration')
+        lat, lon = map(math.radians, point)
+        nearby = []
+        for sid, coords in catalog.items():
+            y, x = map(math.radians, coords)
+            a = math.sin((y-lat)/2)**2 + math.cos(y)*math.cos(lat)*math.sin((x-lon)/2)**2
+            km = 12742 * math.asin(math.sqrt(min(1, a)))
+            if km <= 30:
+                nearby.append((km, sid))
+        if not nearby:
+            continue
+        nearby.sort()
+        preferred = nearby[0][1]
+        usable = next(((d, s) for d, s in nearby if by_id.get(s, {}).get('rain_60m_mm') is not None), None)
+        matches[code] = dict(preferred_station_id=preferred,
+                             station_id=usable[1] if usable else None,
+                             distance_km=round(usable[0], 2) if usable else None)
+    return matches
 
 
 def observations():
     try:
-        when, rows = public_observations()
+        when, rows, stations = public_observations()
     except SystemExit as exc:
         print('Public station table unavailable:', str(exc))
         when = (datetime.now(KST) - timedelta(minutes=15)).replace(second=0, microsecond=0)
         rows = []
+        stations = {}
     try:
         gauges = gauge_rows(when.strftime('%Y%m%d%H%M'))
     except SystemExit as exc:
@@ -191,7 +221,11 @@ def observations():
         existing = {row['station_id'] for row in rows}
         rows.extend(row for row in gauges if row['station_id'] not in existing)
     print('Observations with station coordinates:', sum('station_lat' in row for row in rows))
-    return dict(source='KMA AWS', observed_at=when.isoformat(), records=rows)
+    stations.update({r['station_id']: (r['station_lat'], r['station_lon'])
+                     for r in rows if 'station_lat' in r and 'station_lon' in r})
+    points = json.loads(os.environ.get('WEATHER_POINTS') or '{}')
+    return dict(source='KMA AWS', observed_at=when.isoformat(), records=rows,
+                site_matches=nearby_stations(rows, stations, points))
 
 
 def forecasts():
