@@ -1,0 +1,38 @@
+name: One-time KMA credential comparison
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/one-time-kma-key-check.yml']
+permissions: {}
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Seal one-time comparison proof
+        env:
+          KMA_KEY: ${{ secrets.KMA_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          cat > "$RUNNER_TEMP/compare.pub" <<'PEM'
+          -----BEGIN PUBLIC KEY-----
+          MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0lKITsG5rEpPEqJzaIT8
+          M7FMIUGT8KrmbQuc1AjXER4L9HMiR23yU74b2TrP7kgCzjNCwXwVQUJE+sWday0K
+          /uWCDxUCLlDtIKJotyorV7uGan56Vw6T2afZUgGyU1Cvr7G9hM4jPuDh1qnqAMFl
+          S6+rLY+x8geVhM7Xdb8SLvmA1O/uciTJmaKYk3Et4031THMAJoDxdupAXFvMeNgD
+          QX0JrJrvWfgj7Ud5R/58SP3Yw+cZQAUvfTFzctrznNpMRP6GaBFZUERpFq8eUF2U
+          1h2A8ZL/hvE21mkjVjTfhlt4koArEIgqowbQ95ythXKF7CZN+3OBVv5IOmdhF5zh
+          nQIDAQAB
+          -----END PUBLIC KEY-----
+          PEM
+          python3 - <<'PY' | openssl pkeyutl -encrypt -pubin -inkey "$RUNNER_TEMP/compare.pub" -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 | base64 -w0 | sed 's/^/sealed-proof=/'
+          import hashlib, os, secrets, sys
+          key = os.environ['KMA_KEY'].strip().encode()
+          if not key:
+              raise SystemExit('Secret unavailable')
+          salt = secrets.token_bytes(32)
+          sys.stdout.buffer.write(salt + hashlib.sha256(salt + key).digest())
+          PY
+          echo
