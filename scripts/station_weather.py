@@ -139,6 +139,8 @@ def public_observations():
     header = ['강수15', '강수60', '강수3H', '강수6H', '강수12H', '일강수']
     if not any(row[2:8] == header for row in table.rows):
         raise SystemExit('Unrecognized KMA rainfall columns')
+    weather_header = ['기온', '풍향1', '풍속1(m/s)', '풍향10', '풍속10(m/s)', '습도', '해면기압']
+    has_weather = any(row[8:15] == weather_header for row in table.rows)
     # Public ASOS metadata from https://minwon.kma.go.kr/main/obvStn.do
     with Path(__file__).with_name('kma_asos_coordinates.csv').open() as stream:
         stations = {sid: (float(lat), float(lon)) for sid, lat, lon in csv.reader(stream)}
@@ -155,6 +157,18 @@ def public_observations():
                          rain_15m_mm=rainfall(fields[4]), rain_60m_mm=hour,
                          rain_3h_mm=rainfall(fields[6]), rain_6h_mm=rainfall(fields[7]),
                          rain_12h_mm=rainfall(fields[8]), rain_day_mm=rainfall(fields[9])))
+        if has_weather and len(fields) >= 19:
+            for key, index, low, high in [
+                ('temperature_c', 10, -90, 65), ('wind_direction_deg', 14, 0, 360),
+                ('wind_speed_ms', 16, 0, 150), ('humidity_pct', 17, 0, 100),
+                ('sea_level_pressure_hpa', 18, 800, 1100),
+            ]:
+                try:
+                    value = float(fields[index])
+                except ValueError:
+                    continue
+                if low <= value <= high:
+                    rows[-1][key] = value
     if not rows:
         raise SystemExit('No geolocated public observations')
     return when, rows
