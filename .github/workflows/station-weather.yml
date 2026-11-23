@@ -1,7 +1,8 @@
 name: KMA observations and WeatherAPI forecasts
 on:
   schedule:
-    - cron: '3 * * * *'
+    - cron: '3 * * * *' # Both feeds once an hour
+    - cron: '13,23,33,43,53 * * * *' # Additional KMA observations
   workflow_dispatch:
   push:
     branches: [main]
@@ -20,7 +21,7 @@ jobs:
       max-parallel: 1
       fail-fast: false
       matrix:
-        feed: [kma-aws, weatherapi]
+        feed: ${{ fromJSON(github.event.schedule == '13,23,33,43,53 * * * *' && '["kma-aws"]' || '["kma-aws","weatherapi"]') }}
     uses: ./.github/workflows/collect-and-publish-feed.yml
     with:
       feed: ${{ matrix.feed }}
