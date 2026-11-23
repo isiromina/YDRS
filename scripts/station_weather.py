@@ -31,6 +31,15 @@ def fetch(endpoint, params):
                     raise SystemExit('Response exceeds size limit')
                 return data
         except HTTPError as exc:
+            if exc.code == 403 and endpoint.endswith('/stn_inf.php'):
+                body = exc.read(8192)
+                detail = ' '.join(body.decode(enc, errors='ignore').lower() for enc in ('utf-8', 'cp949'))
+                reasons = [('subscription', ('활용신청', '활용 신청', '신청하지', 'not subscribed', 'subscription')),
+                           ('credential', ('인증키', 'authkey', 'invalid key')),
+                           ('source IP', ('ip address', '허용되지 않은 ip')),
+                           ('quota', ('quota', '호출 횟수'))]
+                category = next((label for label, words in reasons if any(word in detail for word in words)), 'unspecified')
+                raise SystemExit(f'HTTP 403 ({category})') from None
             if exc.code not in (502, 503, 504) or attempt == 2:
                 raise SystemExit(f'Provider returned HTTP {exc.code}') from None
         except (URLError, TimeoutError):
