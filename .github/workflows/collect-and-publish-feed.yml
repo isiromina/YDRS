@@ -31,6 +31,9 @@ jobs:
       - name: Install GRIB reader
         if: inputs.feed == 'weather'
         run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends libeccodes-tools
+      - name: Install point forecast reader
+        if: inputs.feed == 'gfs-domestic'
+        run: python3 -m pip install 'eccodes==2.44.0'
       - name: Collect feed
         env:
           FEED: ${{ inputs.feed }}
@@ -40,6 +43,7 @@ jobs:
         run: |
           case "$FEED" in
             kma-aws|weatherapi) python3 scripts/station_weather.py "$FEED" ;;
+            gfs-domestic) python3 scripts/gfs_domestic.py ;;
             kma-forecast) python3 scripts/kma_forecast.py ;;
             disasters|weather) python3 scripts/public_feeds.py "$FEED" ;;
             *) exit 1 ;;
