@@ -62,6 +62,27 @@ def observations():
             rows.append(dict(station_id=fields[1], rain_60m_mm=hour,
                              rain_15m_mm=rainfall(fields[4]), rain_12h_mm=rainfall(fields[6]),
                              rain_day_mm=rainfall(fields[7])))
+    stations = {}
+    try:
+        catalog = fetch('https://apihub.kma.go.kr/api/typ01/url/stn_inf.php',
+                        dict(inf='RN', tm=stamp, help=0, authKey=os.environ['KMA_KEY']))
+    except SystemExit as exc:
+        print('Gauge catalog unavailable:', str(exc))
+    else:
+        for line in catalog.decode('cp949', errors='replace').splitlines():
+            parts = line.split()
+            if len(parts) < 3 or not parts[0].isdigit():
+                continue
+            try:
+                lon, lat = map(float, parts[1:3])
+            except ValueError:
+                continue
+            if -180 <= lon <= 180 and -90 <= lat <= 90:
+                stations[parts[0]] = (lat, lon)
+    for row in rows:
+        if row['station_id'] in stations:
+            row['station_lat'], row['station_lon'] = stations[row['station_id']]
+    print('Observations with gauge coordinates:', sum('station_lat' in row for row in rows))
     return dict(source='KMA AWS', observed_at=when.isoformat(), records=rows)
 
 
