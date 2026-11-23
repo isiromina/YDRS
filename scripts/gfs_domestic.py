@@ -1,4 +1,4 @@
-"""Extract hourly APCP for domestic points from one NOAA GFS cycle."""
+"""Extract hourly APCP for configured points from one NOAA GFS cycle."""
 import json
 import math
 import os
@@ -38,7 +38,7 @@ def sample(run, lead, points):
 def main():
     now = datetime.now(timezone.utc)
     points = {k:v for k,v in json.loads(os.environ['WEATHER_POINTS']).items()
-              if re.fullmatch(r'P\d{3,5}',k) and 33<=v[0]<=39 and 124<=v[1]<=132}
+              if re.fullmatch(r'P\d{3,5}',k) and -90<=v[0]<=90 and -180<=v[1]<=180}
     hour = now.replace(minute=0, second=0, microsecond=0)
     run = hour.replace(hour=hour.hour//6*6)
     # Test the last required file before downloading a partially published cycle.
