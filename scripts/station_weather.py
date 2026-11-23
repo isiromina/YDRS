@@ -200,6 +200,7 @@ def forecasts():
     if not isinstance(points, dict) or not points:
         raise SystemExit('Invalid forecast point configuration')
     rows = []
+    current_by_point = {}
     for code, point in points.items():
         if (not re.fullmatch(r'P[0-9]{3,5}', code) or not isinstance(point, list)
                 or len(point) != 2 or any(type(v) not in (int, float) for v in point)
@@ -208,14 +209,24 @@ def forecasts():
         data = fetch('https://api.weatherapi.com/v1/forecast.json',
                      dict(q=f'{point[0]},{point[1]}', days=3, alerts='no', aqi='no',
                           key=os.environ['WEATHER_KEY']))
-        for day in json.loads(data)['forecast']['forecastday']:
+        forecast = json.loads(data)
+        current = forecast.get('current', {})
+        values = {field: current[field] for field in
+                  ('temp_c', 'humidity', 'wind_kph', 'wind_degree', 'pressure_mb', 'cloud',
+                   'last_updated_epoch')
+                  if type(current.get(field)) in (int, float) and math.isfinite(current[field])}
+        condition = current.get('condition', {}).get('text')
+        if isinstance(condition, str):
+            values['condition'] = {'text': condition[:100]}
+        current_by_point[code] = values
+        for day in forecast['forecast']['forecastday']:
             for hour in day['hour']:
                 amount = rainfall(hour['precip_mm'])
                 if amount is None:
                     raise SystemExit('Invalid forecast precipitation')
                 when = datetime.fromtimestamp(hour['time_epoch'], UTC)
                 rows.append(dict(point_id=code, valid_at=when.isoformat(), precip_mm=amount))
-    result = dict(source='WeatherAPI', records=rows)
+    result = dict(source='WeatherAPI', records=rows, current_by_point=current_by_point)
     if not raw:
         result['location'] = 'London'
     return result
