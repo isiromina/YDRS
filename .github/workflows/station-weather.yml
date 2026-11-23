@@ -28,4 +28,4 @@ jobs:
     secrets:
       kma_key: ${{ matrix.feed == 'kma-aws' && secrets.KMA_API_KEY || '' }}
       weather_key: ${{ matrix.feed == 'weatherapi' && secrets.WEATHERAPI_KEY || '' }}
-      points: ${{ matrix.feed == 'weatherapi' && secrets.WEATHER_POINTS_JSON || '' }}
+      points: ${{ secrets.WEATHER_POINTS_JSON }}
