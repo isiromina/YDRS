@@ -28,6 +28,7 @@ jobs:
           sparse-checkout: |
             /scripts/
             /feeds/weatherapi.json
+            /feeds/kma-forecast.json
       - name: Install GRIB reader
         if: inputs.feed == 'weather'
         run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends libeccodes-tools
@@ -48,6 +49,21 @@ jobs:
             disasters|weather) python3 scripts/public_feeds.py "$FEED" ;;
             *) exit 1 ;;
           esac
+      - name: Include the published domestic forecast for the Canvas receiver
+        if: inputs.feed == 'kma-aws'
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+
+          forecast_path = Path("feeds/kma-forecast.json")
+          if forecast_path.is_file():
+              forecast = json.loads(forecast_path.read_text())
+              if forecast.get("source") == "KMA PCP" and forecast.get("points"):
+                  observation_path = Path("output/kma-aws.json")
+                  observation = json.loads(observation_path.read_text())
+                  observation["domestic_forecast"] = forecast
+                  observation_path.write_text(json.dumps(observation, separators=(",", ":"), allow_nan=False))
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: snapshot-${{ inputs.feed }}
