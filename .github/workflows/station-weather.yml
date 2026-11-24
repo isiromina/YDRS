@@ -6,7 +6,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['.github/workflows/station-weather.yml', 'scripts/station_weather.py']
+    paths:
+      - '.github/workflows/station-weather.yml'
+      - '.github/workflows/collect-and-publish-feed.yml'
+      - 'scripts/station_weather.py'
 
 permissions: {}
 concurrency:
